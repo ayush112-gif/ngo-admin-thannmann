@@ -18,7 +18,7 @@ type Row = {
   role: Role;
 };
 
-const API_BASE = "http://localhost:5050";
+const API_BASE = "https://ngo-admin-thannmann.onrender.com";
 
 export default function AdminUsers() {
   const [items, setItems] = useState<Row[]>([]);

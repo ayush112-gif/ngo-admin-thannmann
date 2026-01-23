@@ -6,7 +6,7 @@ import { Badge } from "@/app/components/ui/badge";
 import { toast } from "sonner";
 import { RefreshCcw, ClipboardList } from "lucide-react";
 
-const API_BASE = "http://localhost:5050";
+const API_BASE = "https://ngo-admin-thannmann.onrender.com";
 
 type LogRow = {
   id: string;

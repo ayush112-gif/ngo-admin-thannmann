@@ -1,6 +1,6 @@
 import { supabase } from "@/utils/supabaseClient";
 
-const API_BASE = "http://localhost:5050";
+const API_BASE = "https://ngo-admin-thannmann.onrender.com";
 
 export async function logAction(params: {
   action: string;
