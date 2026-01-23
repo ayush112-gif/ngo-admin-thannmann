@@ -1,0 +1,82 @@
+@import './fonts.css';
+@import './tailwind.css';
+@import './theme.css';
+
+/* ---------- 3D + Premium UI Helpers ---------- */
+
+.glass {
+  background: rgba(255, 255, 255, 0.08) !important;
+  border: 1px solid rgba(255, 255, 255, 0.18) !important;
+  backdrop-filter: blur(18px) !important;
+  -webkit-backdrop-filter: blur(18px) !important;
+  box-shadow: 0 20px 70px rgba(0, 0, 0, 0.25) !important;
+}
+
+.neo-card {
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.9),
+    rgba(255, 255, 255, 0.65)
+  ) !important;
+  border: 1px solid rgba(148, 163, 184, 0.35) !important;
+  border-radius: 20px !important;
+  box-shadow: 0 18px 45px rgba(15, 23, 42, 0.15),
+    0 6px 16px rgba(15, 23, 42, 0.08) !important;
+}
+
+.soft-glow {
+  position: relative;
+  isolation: isolate;
+}
+
+.soft-glow::before {
+  content: "";
+  position: absolute;
+  inset: -30px;
+  background: radial-gradient(circle at 20% 20%, rgba(56, 189, 248, 0.35), transparent 55%),
+    radial-gradient(circle at 80% 30%, rgba(251, 191, 36, 0.35), transparent 55%),
+    radial-gradient(circle at 50% 90%, rgba(29, 78, 216, 0.35), transparent 55%);
+  filter: blur(18px);
+  z-index: -1;
+}
+
+.hover-3d {
+  transform: perspective(1000px) translateZ(0);
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+
+.hover-3d:hover {
+  transform: perspective(1000px) rotateX(4deg) rotateY(-4deg) translateY(-6px);
+  box-shadow: 0 28px 70px rgba(15, 23, 42, 0.18) !important;
+}
+
+/* Announcement animations */
+@keyframes slideInFromRight {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideOutToLeft {
+  from {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateX(-100%);
+    opacity: 0;
+  }
+}
+
+.announcement-slide-in {
+  animation: slideInFromRight 0.2s ease-out;
+}
+
+.announcement-slide-out {
+  animation: slideOutToLeft 0.9s ease-in;
+}
