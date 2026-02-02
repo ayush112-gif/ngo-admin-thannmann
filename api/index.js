@@ -4,386 +4,273 @@ import dotenv from "dotenv";
 import { createClient } from "@supabase/supabase-js";
 import nodemailer from "nodemailer";
 import PDFDocument from "pdfkit";
+import QRCode from "qrcode";
 
-dotenv.config();
+/* ----------------------------------------
+   ENV
+---------------------------------------- */
+dotenv.config({ path: "server/.env" });
 
+const url = (process.env.SUPABASE_URL || "").trim();
+const key = (process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
+
+if (!url || !key) {
+  console.error("❌ Supabase ENV missing");
+  process.exit(1);
+}
+
+
+
+/* ----------------------------------------
+   EXPRESS
+---------------------------------------- */
 const app = express();
-
-/* ---------------------------------------------
-   ✅ Middlewares
----------------------------------------------- */
 app.use(cors());
 app.use(express.json());
 
-/* ---------------------------------------------
-   ✅ ENV
----------------------------------------------- */
-const SUPABASE_URL = (process.env.SUPABASE_URL || "").trim();
-const SUPABASE_SERVICE_ROLE_KEY = (process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
-
-// SMTP ENV
-const SMTP_HOST = (process.env.SMTP_HOST || "").trim();
-const SMTP_PORT = Number(process.env.SMTP_PORT || 587);
-const SMTP_SECURE = (process.env.SMTP_SECURE || "false") === "true";
-const SMTP_USER = (process.env.SMTP_USER || "").trim();
-const SMTP_PASS = (process.env.SMTP_PASS || "").trim();
-const FROM_EMAIL = (process.env.FROM_EMAIL || SMTP_USER).trim();
-
-if (!SUPABASE_URL) console.error("❌ SUPABASE_URL missing");
-if (!SUPABASE_SERVICE_ROLE_KEY) console.error("❌ SUPABASE_SERVICE_ROLE_KEY missing");
-
-/* ---------------------------------------------
-   ✅ Supabase Admin Client (Service Role)
----------------------------------------------- */
-const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-
-/* ---------------------------------------------
-   ✅ SMTP Transporter
----------------------------------------------- */
-let transporter = null;
-
-if (SMTP_HOST && SMTP_USER && SMTP_PASS) {
-  transporter = nodemailer.createTransport({
-    host: SMTP_HOST,
-    port: SMTP_PORT,
-    secure: SMTP_SECURE,
-    auth: {
-      user: SMTP_USER,
-      pass: SMTP_PASS,
-    },
-  });
-} else {
-  console.warn("⚠️ SMTP ENV missing -> certificate email will not work");
-}
-
-/* ---------------------------------------------
-   ✅ Health Check
----------------------------------------------- */
-app.get("/api/health", async (req, res) => {
-  return res.json({
-    ok: true,
-    message: "✅ API working",
-    env: {
-      SUPABASE_URL: !!SUPABASE_URL,
-      SERVICE_ROLE_KEY: !!SUPABASE_SERVICE_ROLE_KEY,
-      SMTP_READY: !!transporter,
-    },
-  });
+/* ----------------------------------------
+   SMTP
+---------------------------------------- */
+const transporter = nodemailer.createTransport({
+  host: process.env.SMTP_HOST,
+  port: Number(process.env.SMTP_PORT || 587),
+  secure: false,
+  auth: {
+    user: process.env.SMTP_USER,
+    pass: process.env.SMTP_PASS,
+  },
 });
 
-/* ---------------------------------------------
-   ✅ PDF Certificate Generator (Buffer)
----------------------------------------------- */
-function generateCertificatePDF({ name, amount, date, certificateId }) {
-  return new Promise((resolve, reject) => {
+transporter.verify((err) => {
+  if (err) console.error("❌ SMTP ERROR:", err.message);
+  else console.log("✅ SMTP READY");
+});
+
+/* ----------------------------------------
+   PREMIUM PDF CERTIFICATE (V2)
+---------------------------------------- */
+async function generateCertificatePDF({
+  name,
+  amount,
+  date,
+  certificateId,
+  verifyUrl,
+}) {
+  return new Promise(async (resolve, reject) => {
     try {
       const doc = new PDFDocument({ size: "A4", margin: 50 });
       const chunks = [];
 
       doc.on("data", (c) => chunks.push(c));
       doc.on("end", () => resolve(Buffer.concat(chunks)));
-      doc.on("error", reject);
+
+      const w = doc.page.width;
+      const h = doc.page.height;
 
       // Background
-      doc.rect(0, 0, doc.page.width, doc.page.height).fill("#F8FAFC");
+      doc.rect(0, 0, w, h).fill("#F8FAFC");
 
-      // Border
-      doc
-        .lineWidth(4)
-        .rect(30, 30, doc.page.width - 60, doc.page.height - 60)
-        .stroke("#1D4ED8");
+      // Double Border (luxury)
+      doc.lineWidth(4).rect(28, 28, w - 56, h - 56).stroke("#1D4ED8");
+      doc.lineWidth(1).rect(38, 38, w - 76, h - 76).stroke("#CBD5E1");
 
       // Title
       doc
-        .fillColor("#0F172A")
+        .font("Helvetica-Bold")
         .fontSize(28)
-        .text("CERTIFICATE OF APPRECIATION", { align: "center" });
+        .fillColor("#0F172A")
+        .text("CERTIFICATE OF APPRECIATION", 0, 95, { align: "center" });
 
-      doc.moveDown(1);
-
-      // Subtitle
       doc
-        .fillColor("#334155")
+        .moveDown(0.3)
+        .font("Helvetica")
         .fontSize(14)
-        .text("This certificate is proudly presented to", { align: "center" });
-
-      doc.moveDown(0.8);
+        .fillColor("#475569")
+        .text("This certificate is proudly awarded to", { align: "center" });
 
       // Name
       doc
+        .moveDown(1)
+        .font("Helvetica-Bold")
+        .fontSize(26)
         .fillColor("#1D4ED8")
-        .fontSize(24)
-        .text(name, { align: "center" });
+        .text(name.toUpperCase(), { align: "center" });
 
-      doc.moveDown(1);
-
-      // Donation line
+      // Body
       doc
-        .fillColor("#334155")
+        .moveDown(1)
+        .font("Helvetica")
         .fontSize(14)
-        .text(`For generously donating ₹${amount}`, { align: "center" });
-
-      doc.moveDown(0.6);
-
-      doc
-        .fillColor("#475569")
-        .fontSize(13)
+        .fillColor("#334155")
         .text(
-          "Your contribution helps us create real impact through community programs.",
-          { align: "center" }
+          `In sincere recognition of your generous contribution of ₹${amount}.
+Your support strengthens our commitment to advancing education,
+healthcare, and community welfare initiatives.`,
+          90,
+          250,
+          { width: w - 180, align: "center" }
         );
 
-      doc.moveDown(2);
+      // Info Panel
+      doc.roundedRect(100, 345, w - 200, 90, 14).fill("#EFF6FF");
 
-      // Details
-      doc.fillColor("#0F172A").fontSize(12).text(`Certificate ID: ${certificateId}`, {
-        align: "center",
-      });
+      doc.fillColor("#0F172A").font("Helvetica-Bold").fontSize(11);
+      doc.text(`Certificate ID: ${certificateId}`, 120, 365);
+      doc.text(`Date of Issue: ${date}`, 120, 385);
+      doc.text(`Issued By: Thannmanngaadi Foundation`, 120, 405);
+
+      // QR
+      const qr = await QRCode.toDataURL(verifyUrl);
+      const qrBuf = Buffer.from(qr.split(",")[1], "base64");
+      doc.image(qrBuf, w - 175, 460, { width: 90 });
 
       doc
-        .fillColor("#0F172A")
-        .fontSize(12)
-        .text(`Date: ${date}`, { align: "center" });
+        .font("Helvetica")
+        .fontSize(9)
+        .fillColor("#64748B")
+        .text("Scan to verify authenticity", w - 190, 555);
 
-      doc.moveDown(2);
+      // Signature
+      doc.moveTo(100, 515).lineTo(260, 515).stroke("#94A3B8");
+
+      doc
+        .font("Helvetica-Bold")
+        .fontSize(11)
+        .fillColor("#0F172A")
+        .text("Authorized Signatory", 100, 525);
+
+      doc
+        .font("Helvetica")
+        .fontSize(10)
+        .fillColor("#64748B")
+        .text("Thannmanngaadi Foundation", 100, 542);
 
       // Footer
       doc
-        .fillColor("#334155")
-        .fontSize(12)
-        .text("Thannmanngaadi Foundation", { align: "center" });
+        .font("Helvetica-Oblique")
+        .fontSize(9)
+        .fillColor("#64748B")
+        .text(
+          "This is a digitally generated certificate and is valid without a physical signature.",
+          0,
+          575,
+          { align: "center" }
+        );
 
       doc.end();
-    } catch (err) {
-      reject(err);
+    } catch (e) {
+      reject(e);
     }
   });
 }
 
-/* ---------------------------------------------
-   ✅ Donation -> Send Certificate Email (SMTP)
----------------------------------------------- */
-app.post("/api/donation/send-certificate", async (req, res) => {
+/* ----------------------------------------
+   SEND CERTIFICATE EMAIL (ENTERPRISE STYLE)
+---------------------------------------- */
+app.post("/donation/send-certificate", async (req, res) => {
   try {
     const { name, email, amount } = req.body;
-
-    if (!name || !email || !amount) {
-      return res.status(400).json({
-        ok: false,
-        error: "name, email, amount required",
-      });
-    }
-
-    if (!transporter) {
-      return res.status(500).json({
-        ok: false,
-        error: "SMTP not configured in env",
-      });
-    }
+    if (!name || !email || !amount)
+      return res.status(400).json({ ok: false });
 
     const certificateId = "CERT-" + Date.now();
-    const date = new Date().toLocaleDateString("en-IN");
+    const date = new Date().toLocaleDateString();
+    const verifyUrl = `http://localhost:5050/verify/${certificateId}`;
 
-    const pdfBuffer = await generateCertificatePDF({
+    const pdf = await generateCertificatePDF({
       name,
       amount,
       date,
       certificateId,
+      verifyUrl,
     });
 
     await transporter.sendMail({
-      from: FROM_EMAIL,
+      from: `"Thannmanngaadi Foundation" <${process.env.SMTP_USER}>`,
       to: email,
-      subject: "Thank you for your donation ❤️ (Certificate Attached)",
+      subject: "Official Donation Acknowledgement & Certificate",
       html: `
-        <div style="font-family: Arial, sans-serif; line-height: 1.6;">
-          <h2>Thank you, ${name}! 🙏</h2>
-          <p>We received your donation of <b>₹${amount}</b>.</p>
-          <p>Your donation helps us create real impact in communities.</p>
-          <p><b>Certificate ID:</b> ${certificateId}</p>
-          <p>✅ Your donation certificate is attached with this email.</p>
-          <br/>
-          <p>Regards,<br/><b>Thannmanngaadi Foundation</b></p>
-        </div>
+<div style="background:#f8fafc;padding:36px;font-family:Segoe UI,Arial">
+  <div style="max-width:640px;margin:auto;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 15px 40px rgba(0,0,0,.12)">
+
+    <div style="background:#1d4ed8;padding:20px 28px">
+      <h2 style="margin:0;color:#ffffff;font-weight:600">
+        Thannmanngaadi Foundation
+      </h2>
+      <p style="margin:4px 0 0;color:#dbeafe;font-size:13px">
+        Official Donation Communication
+      </p>
+    </div>
+
+    <div style="padding:32px">
+      <p style="font-size:15px;color:#334155">
+        Dear <b>${name}</b>,
+      </p>
+
+      <p style="font-size:15px;color:#334155;line-height:1.8">
+        We gratefully acknowledge receipt of your donation of 
+        <b style="color:#1d4ed8">₹${amount}</b>.
+        Your generosity enables us to continue delivering meaningful impact
+        across our community-driven programs.
+      </p>
+
+      <div style="background:#f1f5f9;padding:18px;border-radius:12px;margin:24px 0">
+        <p style="margin:0;font-size:14px">
+          <b>Donation Certificate ID:</b> ${certificateId}
+        </p>
+      </div>
+
+      <p style="font-size:14px;color:#334155">
+        📎 Your official donation certificate is attached to this email.
+      </p>
+
+      <p style="font-size:14px;color:#334155">
+        🔍 Certificate Verification:
+        <a href="${verifyUrl}" style="color:#2563eb">${verifyUrl}</a>
+      </p>
+
+      <hr style="border:none;border-top:1px solid #e5e7eb;margin:28px 0"/>
+
+      <p style="font-size:14px;color:#334155">
+        With sincere appreciation,<br/>
+        <b>Thannmanngaadi Foundation</b><br/>
+        <span style="color:#64748b">
+          Empowering communities through compassion
+        </span>
+      </p>
+    </div>
+  </div>
+
+  <p style="text-align:center;color:#94a3b8;font-size:12px;margin-top:18px">
+    © Thannmanngaadi Foundation • Automated system-generated email
+  </p>
+</div>
       `,
       attachments: [
         {
           filename: `Donation-Certificate-${certificateId}.pdf`,
-          content: pdfBuffer,
+          content: pdf,
         },
       ],
     });
 
-    return res.json({
-      ok: true,
-      emailSent: true,
-      certificateId,
-    });
-  } catch (e) {
-    console.error("❌ send certificate error:", e);
-    return res.status(500).json({
-      ok: false,
-      error: e?.message || "Server error",
-    });
-  }
-});
-
-/* ---------------------------------------------
-   ✅ ADMIN: Create user + assign role
----------------------------------------------- */
-app.post("/api/admin/create-user", async (req, res) => {
-  try {
-    const { email, password, role } = req.body;
-
-    if (!email || !password || !role) {
-      return res.status(400).json({
-        ok: false,
-        error: "email, password, role required",
-      });
-    }
-
-    const { data, error } = await supabaseAdmin.auth.admin.createUser({
-      email,
-      password,
-      email_confirm: true,
-    });
-
-    if (error) {
-      return res.status(400).json({ ok: false, error: error.message });
-    }
-
-    const userId = data.user.id;
-
-    const { error: roleErr } = await supabaseAdmin
-      .from("user_roles")
-      .upsert([{ user_id: userId, role_name: role }], {
-        onConflict: "user_id",
-      });
-
-    if (roleErr) {
-      return res.status(400).json({ ok: false, error: roleErr.message });
-    }
-
-    return res.json({ ok: true, user: data.user });
+    res.json({ ok: true, certificateId });
   } catch (e) {
     console.error(e);
-    return res.status(500).json({ ok: false, error: "Server error" });
+    res.status(500).json({ ok: false });
   }
 });
 
-/* ---------------------------------------------
-   ✅ ADMIN: List users + roles
----------------------------------------------- */
-app.get("/api/admin/users", async (req, res) => {
-  try {
-    const { data, error } = await supabaseAdmin.auth.admin.listUsers();
-    if (error) return res.status(400).json({ ok: false, error: error.message });
-
-    const { data: rolesData, error: rolesError } = await supabaseAdmin
-      .from("user_roles")
-      .select("*");
-
-    if (rolesError) {
-      return res.status(400).json({ ok: false, error: rolesError.message });
-    }
-
-    const users = (data.users || []).map((u) => {
-      const roleRow = rolesData?.find((r) => r.user_id === u.id);
-      return {
-        id: u.id,
-        email: u.email,
-        created_at: u.created_at,
-        role: roleRow?.role_name || "none",
-      };
-    });
-
-    return res.json({ ok: true, users });
-  } catch (e) {
-    console.error(e);
-    return res.status(500).json({ ok: false, error: "Server error" });
-  }
+/* ----------------------------------------
+   VERIFY PAGE
+---------------------------------------- */
+app.get("/verify/:id", (req, res) => {
+  res.send(`<h2>✅ Certificate ${req.params.id} Verified</h2>`);
 });
 
-/* ---------------------------------------------
-   ✅ ADMIN: Update role
----------------------------------------------- */
-app.post("/api/admin/update-role", async (req, res) => {
-  try {
-    const { user_id, role } = req.body;
-
-    if (!user_id || !role) {
-      return res.status(400).json({ ok: false, error: "user_id and role required" });
-    }
-
-    const { error } = await supabaseAdmin
-      .from("user_roles")
-      .upsert([{ user_id, role_name: role }], { onConflict: "user_id" });
-
-    if (error) return res.status(400).json({ ok: false, error: error.message });
-
-    return res.json({ ok: true });
-  } catch (e) {
-    console.error(e);
-    return res.status(500).json({ ok: false, error: "Server error" });
-  }
-});
-
-/* ---------------------------------------------
-   ✅ ADMIN: Delete user
----------------------------------------------- */
-app.delete("/api/admin/delete-user/:id", async (req, res) => {
-  try {
-    const id = req.params.id;
-
-    const { error } = await supabaseAdmin.auth.admin.deleteUser(id);
-    if (error) return res.status(400).json({ ok: false, error: error.message });
-
-    return res.json({ ok: true });
-  } catch (e) {
-    console.error(e);
-    return res.status(500).json({ ok: false, error: "Server error" });
-  }
-});
-
-/* ---------------------------------------------
-   ✅ ADMIN: Activity log
----------------------------------------------- */
-app.post("/api/admin/log", async (req, res) => {
-  try {
-    const { actor_user_id, actor_email, action, entity, entity_id, details } = req.body;
-
-    if (!actor_user_id || !action || !entity) {
-      return res.status(400).json({
-        ok: false,
-        error: "actor_user_id, action, entity required",
-      });
-    }
-
-    const { data, error } = await supabaseAdmin
-      .from("admin_logs")
-      .insert([
-        {
-          actor_user_id,
-          actor_email: actor_email || null,
-          action,
-          entity,
-          entity_id: entity_id || null,
-          details: details || {},
-        },
-      ])
-      .select()
-      .single();
-
-    if (error) return res.status(400).json({ ok: false, error: error.message });
-
-    return res.json({ ok: true, log: data });
-  } catch (e) {
-    console.error(e);
-    return res.status(500).json({ ok: false, error: "Server error" });
-  }
-});
-
-/* ---------------------------------------------
-   ✅ Vercel export (IMPORTANT)
----------------------------------------------- */
-export default app;
+/* ----------------------------------------
+   SERVER
+---------------------------------------- */
+app.listen(5050, () =>
+  console.log("🚀 Server running on http://localhost:5050")
+); 

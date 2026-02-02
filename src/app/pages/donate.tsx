@@ -121,7 +121,7 @@ export function DonatePage() {
   }
 
   async function sendCertificateEmail(donorName: string, donorEmail: string, donorAmount: number) {
-    const res = await fetch("https://ngo-admin-thannmann.onrender.com/donation/send-certificate", {
+    const res = await fetch("http://localhost:5050/donation/send-certificate", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

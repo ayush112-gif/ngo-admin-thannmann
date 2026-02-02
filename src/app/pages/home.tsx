@@ -3,6 +3,16 @@ import { Link } from "@/app/components/router";
 import { Button } from "@/app/components/ui/button";
 import { Card, CardContent } from "@/app/components/ui/card";
 import { Badge } from "@/app/components/ui/badge";
+import Leaderboard from "@/app/components/Leaderboard";
+
+import {
+  supabaseAnnouncements,
+  supabasePrograms,
+  supabaseBlogs,
+} from "@/utils/supabaseApi";
+
+// ← ADD THIS
+
 
 import {
   Megaphone,
@@ -27,11 +37,7 @@ import {
   Quote,
 } from "lucide-react";
 
-import {
-  supabaseAnnouncements,
-  supabasePrograms,
-  supabaseBlogs,
-} from "@/utils/supabaseApi";
+
 
 type AnnouncementRow = {
   id: string;
@@ -568,6 +574,13 @@ export function HomePage() {
         </div>
       </section>
 
+{/* ✅ Leaderboard */}
+<section className="py-14 bg-white">
+  <div className="container mx-auto px-4 sm:px-6">
+    <Leaderboard />
+  </div>
+</section>
+
       {/* ✅ Featured Program Spotlight */}
       {featuredProgram && (
         <section className="py-16 bg-white">
@@ -908,7 +921,7 @@ export function HomePage() {
 
       {/* ✅ Floating WhatsApp Button */}
       <a
-        href="https://wa.me/911234567890"
+        href="https://wa.me/+918887614683"
         target="_blank"
         rel="noreferrer"
         className="fixed bottom-6 right-6 z-50 neo-card hover-3d px-5 py-3 flex items-center gap-3"

@@ -2,12 +2,16 @@ import { Router, useRouter } from "@/app/components/router";
 import { Navbar } from "@/app/components/navbar";
 import { Footer } from "@/app/components/footer";
 import { Toaster } from "@/app/components/ui/sonner";
-import AdminMessages from "@/app/pages/admin/messages";
 
+import AdminMessages from "@/app/pages/admin/messages";
+import AdminUsers from "@/app/pages/admin/users";
 
 import { HomePage } from "@/app/pages/home";
 import { AboutPage } from "@/app/pages/about";
 import { DonatePage } from "@/app/pages/donate";
+import { HallOfFamePage } from "@/app/pages/halloffame";
+
+
 
 import {
   ProgramsPage,
@@ -20,14 +24,17 @@ import {
 
 import { BlogDetailsPage } from "@/app/pages/blogDetails";
 
-import { AdminLoginPage } from "@/app/pages/admin/login";
-import { AdminDashboard } from "@/app/pages/admin/dashboard";
+import { AdminLoginPage}  from "@/app/pages/admin/login";
+import  {AdminDashboard}  from "@/app/pages/admin/dashboard";
 import AdminAnnouncements from "@/app/pages/admin/announcements";
 import AdminBlogs from "@/app/pages/admin/blogs";
 import AdminDonations from "@/app/pages/admin/donations";
 import AdminVolunteers from "@/app/pages/admin/volunteers";
 import AdminPrograms from "@/app/pages/admin/programs";
 import AdminInternships from "@/app/pages/admin/internships";
+import AdminImpactRules from "@/app/pages/admin/impactRules";
+
+import { LiveImpactWidget } from "@/app/components/LiveImpactWidget";
 
 function AppContent() {
   const { currentPath } = useRouter();
@@ -48,6 +55,13 @@ function AppContent() {
       case "/admin/blogs":
         return <AdminBlogs />;
 
+        case "/hall-of-fame":
+  return <HallOfFamePage />;
+  // ✅ Hall of Fame route
+
+
+
+
       case "/admin/donations":
         return <AdminDonations />;
 
@@ -56,11 +70,18 @@ function AppContent() {
 
       case "/admin/programs":
         return <AdminPrograms />;
+        case "/admin/impactrules":
+  return <AdminImpactRules />;
+
 
       case "/admin/internships":
         return <AdminInternships />;
-        case "/admin/messages":
-  return <AdminMessages />;
+
+      case "/admin/messages":
+        return <AdminMessages />;
+
+      case "/admin/users": // ✅ USERS ROUTE ADDED
+        return <AdminUsers />;
 
       default:
         return <AdminDashboard />;

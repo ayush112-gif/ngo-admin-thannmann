@@ -7,7 +7,23 @@ import { Input } from "@/app/components/ui/input";
 import { Label } from "@/app/components/ui/label";
 import { Badge } from "@/app/components/ui/badge";
 
-import { Shield, RefreshCcw, Trash2, PlusCircle, UserCog } from "lucide-react";
+import {
+  Shield,
+  RefreshCcw,
+  Trash2,
+  PlusCircle,
+  UserCog,
+  LayoutDashboard,
+  Megaphone,
+  FileText,
+  Heart,
+  Briefcase,
+  Users,
+  DollarSign,
+  MessageSquare,
+} from "lucide-react";
+
+import { useRouter } from "@/app/components/router";
 
 type Role = "super_admin" | "editor" | "manager" | "none";
 
@@ -18,13 +34,26 @@ type Row = {
   role: Role;
 };
 
-const API_BASE = "https://ngo-admin-thannmann.onrender.com";
+const API_BASE = "http://localhost:5050";
+
+const menuItems = [
+  { id: "dashboard", icon: LayoutDashboard, label: "Dashboard", route: "/admin/dashboard" },
+  { id: "announcements", icon: Megaphone, label: "Announcements", route: "/admin/announcements" },
+  { id: "blogs", icon: FileText, label: "Blogs", route: "/admin/blogs" },
+  { id: "programs", icon: Heart, label: "Programs", route: "/admin/programs" },
+  { id: "internships", icon: Briefcase, label: "Internships", route: "/admin/internships" },
+  { id: "volunteers", icon: Users, label: "Volunteers", route: "/admin/volunteers" },
+  { id: "donations", icon: DollarSign, label: "Donations", route: "/admin/donations" },
+  { id: "messages", icon: MessageSquare, label: "Messages", route: "/admin/messages" },
+  { id: "users", icon: UserCog, label: "Users & Roles", route: "/admin/users" },
+];
 
 export default function AdminUsers() {
+  const { navigate } = useRouter();
+
   const [items, setItems] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // create form
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [role, setRole] = useState<"super_admin" | "editor" | "manager">("editor");
@@ -40,7 +69,7 @@ export default function AdminUsers() {
       if (!json.ok) throw new Error(json.error || "Failed to load users");
       setItems(json.users || []);
     } catch (e: any) {
-      toast.error(e.message || "Error");
+      toast.error(e.message || "Error loading users");
     } finally {
       setLoading(false);
     }
@@ -66,13 +95,13 @@ export default function AdminUsers() {
       const json = await res.json();
       if (!json.ok) throw new Error(json.error || "Failed to create user");
 
-      toast.success("✅ User created + Role assigned");
+      toast.success("✅ User created");
       setEmail("");
       setPassword("");
       setRole("editor");
       await load();
     } catch (e: any) {
-      toast.error(e.message || "Error");
+      toast.error(e.message || "Error creating user");
     }
   }
 
@@ -87,10 +116,10 @@ export default function AdminUsers() {
       const json = await res.json();
       if (!json.ok) throw new Error(json.error || "Failed to update role");
 
-      toast.success("✅ Role Updated");
+      toast.success("Role updated");
       await load();
     } catch (e: any) {
-      toast.error(e.message || "Error");
+      toast.error(e.message || "Error updating role");
     }
   }
 
@@ -105,10 +134,10 @@ export default function AdminUsers() {
       const json = await res.json();
       if (!json.ok) throw new Error(json.error || "Failed to delete user");
 
-      toast.success("✅ User deleted");
+      toast.success("User deleted");
       await load();
     } catch (e: any) {
-      toast.error(e.message || "Error");
+      toast.error(e.message || "Error deleting user");
     }
   }
 
@@ -117,52 +146,74 @@ export default function AdminUsers() {
     if (!query) return items;
 
     return items.filter(
-      (x) => x.email.toLowerCase().includes(query) || x.role.toLowerCase().includes(query)
+      (x) =>
+        x.email.toLowerCase().includes(query) ||
+        x.role.toLowerCase().includes(query)
     );
   }, [items, q]);
 
   return (
-    <div className="p-6 md:p-8 bg-[#F8FAFC] min-h-screen">
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div>
-          <div className="text-sm text-gray-500 flex items-center gap-2">
-            <Shield size={16} />
-            Admin / Users
-          </div>
-          <h1 className="text-3xl font-extrabold text-[#0F172A]" style={{ fontFamily: "Poppins, sans-serif" }}>
-            Users & Roles Manager
-          </h1>
-          <p className="text-gray-600 mt-1">
-            Super Admin can create admin users, assign roles & delete accounts.
-          </p>
+    <div className="flex h-screen">
+
+      {/* Sidebar */}
+      <aside className="w-64 bg-slate-900 text-white flex flex-col">
+        <div className="p-6 text-xl font-bold border-b border-slate-700">
+          NGO Admin
         </div>
 
-        <Button onClick={load} variant="outline" className="rounded-full">
-          <RefreshCcw size={16} className="mr-2" />
-          Refresh
-        </Button>
-      </div>
+        <nav className="flex-1 p-2 space-y-1">
+          {menuItems.map((item) => {
+            const Icon = item.icon;
+            const active = item.id === "users";
 
-      {/* Create User */}
-      <Card className="border-2 rounded-2xl mt-6 bg-white">
-        <CardContent className="p-6">
-          <h2 className="text-lg font-bold text-[#0F172A] flex items-center gap-2">
-            <UserCog size={18} /> Create New Admin User
-          </h2>
+            return (
+              <button
+                key={item.id}
+                onClick={() => navigate(item.route)}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition ${
+                  active ? "bg-blue-600" : "hover:bg-slate-800 text-slate-300"
+                }`}
+              >
+                <Icon size={18} />
+                {item.label}
+              </button>
+            );
+          })}
+        </nav>
+      </aside>
 
-          <div className="grid md:grid-cols-3 gap-4 mt-4">
-            <div>
-              <Label>Email</Label>
-              <Input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="admin@email.com" />
+      {/* Main */}
+      <main className="flex-1 overflow-y-auto bg-[#F8FAFC] p-8">
+
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <div>
+            <div className="text-sm text-gray-500 flex items-center gap-2">
+              <Shield size={16} />
+              Admin / Users
             </div>
 
-            <div>
-              <Label>Password</Label>
-              <Input value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Set a password" />
-            </div>
+            <h1 className="text-3xl font-extrabold text-[#0F172A]">
+              Users & Roles Manager
+            </h1>
+          </div>
 
-            <div>
-              <Label>Role</Label>
+          <Button onClick={load} variant="outline" className="rounded-full">
+            <RefreshCcw size={16} className="mr-2" />
+            Refresh
+          </Button>
+        </div>
+
+        {/* Create User */}
+        <Card className="border-2 rounded-2xl mt-6 bg-white">
+          <CardContent className="p-6">
+            <h2 className="text-lg font-bold flex items-center gap-2">
+              <UserCog size={18} /> Create Admin User
+            </h2>
+
+            <div className="grid md:grid-cols-3 gap-4 mt-4">
+              <Input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email" />
+              <Input value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Password" />
+
               <select
                 value={role}
                 onChange={(e) => setRole(e.target.value as any)}
@@ -173,80 +224,56 @@ export default function AdminUsers() {
                 <option value="super_admin">super_admin</option>
               </select>
             </div>
-          </div>
 
-          <div className="mt-5">
-            <Button onClick={createUser} className="rounded-full bg-[#1D4ED8] hover:bg-[#1e40af]">
+            <Button onClick={createUser} className="mt-5 rounded-full bg-blue-600">
               <PlusCircle size={16} className="mr-2" />
               Create User
             </Button>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
 
-      {/* Search */}
-      <div className="mt-6">
+        {/* Search */}
         <Input
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          placeholder="Search by email or role..."
-          className="rounded-xl"
+          placeholder="Search users..."
+          className="mt-6 rounded-xl"
         />
-      </div>
 
-      {/* Users List */}
-      <div className="mt-6">
-        {loading ? (
-          <p className="text-gray-600">Loading users...</p>
-        ) : filtered.length === 0 ? (
-          <p className="text-gray-600">No users found.</p>
-        ) : (
-          <div className="grid md:grid-cols-2 gap-5">
-            {filtered.map((u) => (
-              <Card key={u.id} className="border-2 rounded-2xl bg-white hover:shadow-lg transition-all">
-                <CardContent className="p-6">
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="min-w-0">
-                      <div className="font-extrabold text-[#0F172A] truncate">{u.email}</div>
-                      <div className="text-xs text-gray-500 mt-1">
-                        Created: {new Date(u.created_at).toLocaleString()}
-                      </div>
+        {/* List */}
+        <div className="mt-6 grid md:grid-cols-2 gap-5">
+          {filtered.map((u) => (
+            <Card key={u.id} className="border-2 rounded-2xl bg-white">
+              <CardContent className="p-6">
+                <div className="font-bold truncate">{u.email}</div>
+                <Badge className="mt-2">Role: {u.role}</Badge>
 
-                      <div className="mt-3">
-                        <Badge className="bg-[#FBBF24] text-[#0F172A]">Role: {u.role}</Badge>
-                      </div>
+                <div className="mt-4 flex gap-2">
+                  <select
+                    value={u.role}
+                    onChange={(e) => updateRole(u.id, e.target.value as Role)}
+                    className="px-3 py-2 border rounded-xl"
+                  >
+                    <option value="editor">editor</option>
+                    <option value="manager">manager</option>
+                    <option value="super_admin">super_admin</option>
+                    <option value="none">none</option>
+                  </select>
 
-                      <div className="text-xs text-gray-500 mt-3">ID: {u.id}</div>
-                    </div>
+                  <Button
+                    onClick={() => deleteUser(u.id)}
+                    variant="outline"
+                    className="border-red-500 text-red-600"
+                  >
+                    <Trash2 size={16} />
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
 
-                    <div className="flex flex-col gap-2">
-                      <select
-                        value={u.role}
-                        onChange={(e) => updateRole(u.id, e.target.value as Role)}
-                        className="px-3 py-2 border rounded-xl"
-                      >
-                        <option value="editor">editor</option>
-                        <option value="manager">manager</option>
-                        <option value="super_admin">super_admin</option>
-                        <option value="none">none</option>
-                      </select>
-
-                      <Button
-                        onClick={() => deleteUser(u.id)}
-                        variant="outline"
-                        className="rounded-full border-red-500 text-red-600 hover:bg-red-50"
-                      >
-                        <Trash2 size={16} className="mr-2" />
-                        Delete
-                      </Button>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        )}
-      </div>
+      </main>
     </div>
   );
 }

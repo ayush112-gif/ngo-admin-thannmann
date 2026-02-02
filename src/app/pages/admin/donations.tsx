@@ -5,33 +5,67 @@ import { Card, CardContent } from "@/app/components/ui/card";
 import { Button } from "@/app/components/ui/button";
 import { Input } from "@/app/components/ui/input";
 
+import {
+  LineChart,
+  Line,
+  PieChart,
+  Pie,
+  Cell,
+  Tooltip,
+  ResponsiveContainer,
+} from "recharts";
+
+import {
+  LayoutDashboard,
+  Users,
+  MessageSquare,
+  DollarSign,
+  UserCog,
+  Megaphone,
+  FileText,
+  Heart,
+  Briefcase,
+} from "lucide-react";
+
+
+import { useRouter } from "@/app/components/router";
+
 type DonationRow = {
   id: string;
   name: string;
   email: string;
-  phone: string | null;
   amount: number;
-  type: string;
   payment_method: string;
   created_at: string;
 };
 
+const COLORS = ["#2563eb", "#16a34a", "#f59e0b", "#9333ea"];
+
+const menuItems = [
+ 
+  { id: "dashboard", icon: LayoutDashboard, label: "Dashboard", route: "/admin/dashboard" },
+  { id: "announcements", icon: Megaphone, label: "Announcements", route: "/admin/announcements" },
+  { id: "blogs", icon: FileText, label: "Blogs", route: "/admin/blogs" },
+  { id: "programs", icon: Heart, label: "Programs", route: "/admin/programs" },
+  { id: "internships", icon: Briefcase, label: "Internships", route: "/admin/internships" },
+  { id: "volunteers", icon: Users, label: "Volunteers", route: "/admin/volunteers" },
+  { id: "donations", icon: DollarSign, label: "Donations", route: "/admin/donations" },
+  { id: "messages", icon: MessageSquare, label: "Messages", route: "/admin/messages" },
+  { id: "users", icon: UserCog, label: "Users & Roles", route: "/admin/users" },
+];
+
 export default function AdminDonations() {
+  const { navigate } = useRouter();
+
   const [items, setItems] = useState<DonationRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
 
   async function load() {
     setLoading(true);
-    try {
-      const data = await supaDonations.getAll();
-      setItems(data || []);
-    } catch (e: any) {
-      console.error(e);
-      alert(e?.message || "Failed to load donations");
-    } finally {
-      setLoading(false);
-    }
+    const data = await supaDonations.getAll();
+    setItems(data || []);
+    setLoading(false);
   }
 
   useEffect(() => {
@@ -39,155 +73,215 @@ export default function AdminDonations() {
   }, []);
 
   const filtered = useMemo(() => {
-    const s = q.trim().toLowerCase();
-    if (!s) return items;
-    return items.filter((d) => {
-      return (
-        d.name?.toLowerCase().includes(s) ||
-        d.email?.toLowerCase().includes(s) ||
-        (d.phone || "").toLowerCase().includes(s) ||
-        String(d.amount).includes(s) ||
-        d.payment_method?.toLowerCase().includes(s)
-      );
-    });
+    const s = q.toLowerCase();
+    return items.filter((d) =>
+      [d.name, d.email].join(" ").toLowerCase().includes(s)
+    );
   }, [items, q]);
 
-  const totalAmount = useMemo(() => {
-    return filtered.reduce((sum, d) => sum + (Number(d.amount) || 0), 0);
+  const donorMap = useMemo(() => {
+    const map: Record<string, any> = {};
+
+    filtered.forEach((d) => {
+      if (!map[d.email]) {
+        map[d.email] = {
+          name: d.name,
+          email: d.email,
+          totalAmount: 0,
+          count: 0,
+        };
+      }
+
+      map[d.email].totalAmount += d.amount;
+      map[d.email].count += 1;
+    });
+
+    return Object.values(map);
+  }, [filtered]);
+
+  const leaderboard = [...donorMap]
+    .sort((a, b) => b.totalAmount - a.totalAmount)
+    .slice(0, 5);
+
+  const total = filtered.reduce((s, d) => s + d.amount, 0);
+
+  const monthly = useMemo(() => {
+    const map: Record<string, number> = {};
+    filtered.forEach((d) => {
+      const m = new Date(d.created_at).toLocaleString("default", {
+        month: "short",
+      });
+      map[m] = (map[m] || 0) + d.amount;
+    });
+    return Object.entries(map).map(([month, amount]) => ({
+      month,
+      amount,
+    }));
+  }, [filtered]);
+
+  const methods = useMemo(() => {
+    const map: Record<string, number> = {};
+    filtered.forEach((d) => {
+      map[d.payment_method] = (map[d.payment_method] || 0) + 1;
+    });
+    return Object.entries(map).map(([name, value]) => ({ name, value }));
   }, [filtered]);
 
   return (
-    <div className="p-6">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-[#0F172A]">Donations</h1>
-          <p className="text-sm text-gray-500">
-            View all donation records (Live from Supabase)
-          </p>
+    <div className="flex h-screen">
+
+      {/* Sidebar */}
+      <aside className="w-64 bg-slate-900 text-white flex flex-col">
+        <div className="p-6 font-bold text-xl border-b border-slate-700">
+          NGO Admin
         </div>
 
-        <div className="flex gap-2">
-          <Button
-            onClick={load}
-            className="rounded-xl bg-[#1D4ED8] hover:bg-[#1e40af]"
-          >
-            Refresh
-          </Button>
-        </div>
-      </div>
+        <nav className="p-2 space-y-1">
+          {menuItems.map((m) => {
+            const Icon = m.icon;
+            const active = m.id === "donations";
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
-        <Card className="rounded-2xl border">
-          <CardContent className="p-5">
-            <p className="text-xs text-gray-500">Total Records</p>
-            <p className="text-2xl font-bold text-[#0F172A] mt-2">
-              {filtered.length}
-            </p>
-          </CardContent>
-        </Card>
+            return (
+              <button
+                key={m.id}
+                onClick={() => navigate(m.route)}
+                className={`w-full flex gap-3 px-4 py-3 rounded ${
+                  active ? "bg-blue-600" : "hover:bg-slate-800 text-slate-300"
+                }`}
+              >
+                <Icon size={18} /> {m.label}
+              </button>
+            );
+          })}
+        </nav>
+      </aside>
 
-        <Card className="rounded-2xl border">
-          <CardContent className="p-5">
-            <p className="text-xs text-gray-500">Total Amount</p>
-            <p className="text-2xl font-bold text-[#0F172A] mt-2">
-              ₹{totalAmount.toLocaleString()}
-            </p>
-          </CardContent>
-        </Card>
+      {/* Main */}
+      <main className="flex-1 p-8 bg-[#F8FAFC] overflow-y-auto">
 
-        <Card className="rounded-2xl border">
-          <CardContent className="p-5">
-            <p className="text-xs text-gray-500">Status</p>
-            <p className="text-sm font-medium text-gray-600 mt-3">
-              {loading ? "Loading..." : "Synced ✅"}
-            </p>
-          </CardContent>
-        </Card>
-      </div>
+        <h1 className="text-3xl font-extrabold mb-6">
+          Donor Intelligence Dashboard
+        </h1>
 
-      {/* Search */}
-      <div className="mt-6 flex flex-col md:flex-row gap-3 md:items-center md:justify-between">
-        <div className="max-w-md w-full">
+        {/* Search */}
+        <div className="flex gap-4 mb-6">
           <Input
+            placeholder="Search donor..."
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Search by name, email, phone, amount..."
-            className="rounded-xl"
           />
+          <Button onClick={load}>Refresh</Button>
         </div>
 
-        <div className="text-sm text-gray-500">
-          Showing <b>{filtered.length}</b> results
-        </div>
-      </div>
+        {/* Stats */}
+        <div className="grid md:grid-cols-3 gap-6 mb-8">
 
-      {/* Table */}
-      <Card className="mt-5 rounded-2xl border overflow-hidden">
-        <CardContent className="p-0">
-          <div className="overflow-auto">
-            <table className="min-w-[900px] w-full text-sm">
-              <thead className="bg-[#F8FAFC] border-b">
-                <tr className="text-left text-gray-600">
-                  <th className="p-4">Donor</th>
-                  <th className="p-4">Amount</th>
-                  <th className="p-4">Type</th>
-                  <th className="p-4">Method</th>
-                  <th className="p-4">Date</th>
+          <Card>
+            <CardContent className="p-6">
+              <p>Total Donations</p>
+              <p className="text-3xl font-bold mt-2">
+                ₹{total.toLocaleString()}
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-6">
+              <p>Unique Donors</p>
+              <p className="text-3xl font-bold mt-2">{donorMap.length}</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-6">
+              <p>Total Transactions</p>
+              <p className="text-3xl font-bold mt-2">{filtered.length}</p>
+            </CardContent>
+          </Card>
+
+        </div>
+
+        {/* Charts */}
+        <div className="grid md:grid-cols-2 gap-6 mb-8">
+
+          <Card>
+            <CardContent className="p-6">
+              <h3 className="font-bold mb-4">Monthly Revenue</h3>
+              <ResponsiveContainer width="100%" height={250}>
+                <LineChart data={monthly}>
+                  <Line dataKey="amount" stroke="#2563eb" />
+                  <Tooltip />
+                </LineChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-6">
+              <h3 className="font-bold mb-4">Payment Methods</h3>
+              <ResponsiveContainer width="100%" height={250}>
+                <PieChart>
+                  <Pie data={methods} dataKey="value">
+                    {methods.map((_, i) => (
+                      <Cell key={i} fill={COLORS[i % COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip />
+                </PieChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+
+        </div>
+
+        {/* Leaderboard */}
+        <Card className="mb-8">
+          <CardContent className="p-6">
+            <h3 className="font-bold mb-4">Top Donors</h3>
+            {leaderboard.map((d, i) => (
+              <div key={i} className="flex justify-between border-b py-2">
+                <span>#{i + 1} {d.name}</span>
+                <span className="text-emerald-600 font-bold">
+                  ₹{d.totalAmount.toLocaleString()}
+                </span>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+
+        {/* Donor table */}
+        <Card>
+          <CardContent className="p-6">
+            <h3 className="font-bold mb-4">All Donors</h3>
+
+            <table className="w-full text-sm">
+              <thead className="bg-gray-100">
+                <tr>
+                  <th className="p-3 text-left">Name</th>
+                  <th className="p-3 text-left">Email</th>
+                  <th className="p-3">Donations</th>
+                  <th className="p-3">Lifetime Amount</th>
                 </tr>
               </thead>
 
               <tbody>
-                {loading ? (
-                  <tr>
-                    <td className="p-6 text-gray-500" colSpan={5}>
-                      Loading donations...
+                {donorMap.map((d, i) => (
+                  <tr key={i} className="border-b hover:bg-gray-50">
+                    <td className="p-3">{d.name}</td>
+                    <td className="p-3">{d.email}</td>
+                    <td className="p-3 text-center">{d.count}</td>
+                    <td className="p-3 font-bold text-emerald-600 text-center">
+                      ₹{d.totalAmount.toLocaleString()}
                     </td>
                   </tr>
-                ) : filtered.length === 0 ? (
-                  <tr>
-                    <td className="p-6 text-gray-500" colSpan={5}>
-                      No donations found.
-                    </td>
-                  </tr>
-                ) : (
-                  filtered.map((d) => (
-                    <tr key={d.id} className="border-b hover:bg-[#F8FAFC]">
-                      <td className="p-4">
-                        <div className="font-semibold text-[#0F172A]">{d.name}</div>
-                        <div className="text-xs text-gray-500">
-                          {d.email} {d.phone ? `• ${d.phone}` : ""}
-                        </div>
-                      </td>
-
-                      <td className="p-4 font-semibold text-[#0F172A]">
-                        ₹{Number(d.amount).toLocaleString()}
-                      </td>
-
-                      <td className="p-4">
-                        <span className="px-3 py-1 rounded-full bg-[#1D4ED8]/10 text-[#1D4ED8] text-xs font-medium">
-                          {d.type}
-                        </span>
-                      </td>
-
-                      <td className="p-4">
-                        <span className="px-3 py-1 rounded-full bg-[#0F172A]/10 text-[#0F172A] text-xs font-medium">
-                          {d.payment_method}
-                        </span>
-                      </td>
-
-                      <td className="p-4 text-gray-600">
-                        {new Date(d.created_at).toLocaleString()}
-                      </td>
-                    </tr>
-                  ))
-                )}
+                ))}
               </tbody>
             </table>
-          </div>
-        </CardContent>
-      </Card>
+
+          </CardContent>
+        </Card>
+
+      </main>
     </div>
   );
 }

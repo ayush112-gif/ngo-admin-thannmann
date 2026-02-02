@@ -1,96 +1,216 @@
-🌍 NGO Website + Admin Panel
+# 🌍 NGO Website & Admin Panel — Full-Stack Production System
 
-A modern NGO management platform with a public-facing website + powerful role-based admin dashboard.
-Built using React + TypeScript + TailwindCSS + Supabase.
+A production-ready NGO management platform built with **React (Vite)**, **Express.js**, and **Supabase**.
 
-🚀 Features
-🌐 Public Website
+This system enables NGOs to manage donations, volunteers, certificates, and admin workflows through a secure role-based dashboard.
 
-✅ Beautiful Home Page with Programs + Blogs + Announcements
+Designed for real-world deployment and recruiter demonstration.
 
-✅ Donation Page (donation save in Supabase)
+---
 
-✅ Volunteer Application Form
+## 🚀 Live Features
 
-✅ Internship Application Form
+### 🌐 Public Website
 
-✅ Blog Page + Updates Section
+* Modern NGO landing page
+* Programs, blogs & announcements
+* Online donation system
+* Volunteer & internship applications
+* Contact form → admin inbox
+* Automatic donation certificate generation
+* Instant download + email delivery
 
-✅ Contact Page / Contact Form
+---
 
-🛠️ Admin Panel
+### 🔐 Role-Based Admin Panel
 
-✅ Role Based Access (Super Admin / Manager / Editor)
+* Secure login (Supabase Auth)
+* Super Admin / Manager / Editor roles
+* Live dashboard statistics
+* Donation management
+* Volunteer & internship approvals
+* Blog & announcement publishing
+* Contact messages inbox
+* Admin activity logs (audit trail)
+* User & role management
 
-✅ Dashboard Live Stats (Donations, Volunteers, Programs, Blogs etc.)
+---
 
-✅ Manage Announcements (Draft → Publish)
+### 🧠 Advanced Highlights
 
-✅ Manage Blogs (Draft → Publish)
+✨ Digital PDF donation certificates
+✨ SMTP email automation
+✨ Role-based UI rendering
+✨ Admin audit logs
+✨ Live analytics dashboard
+✨ Monorepo architecture
+✨ Production-ready backend
 
-✅ Manage Donations (view records)
+---
 
-✅ Manage Volunteer Applications (Approve / Reject / Pending)
+## 🛠️ Tech Stack
 
-✅ Manage Internship Applications
+### Frontend
 
-✅ Professional Admin UI (Sidebar + Quick Actions)
+* React (Vite)
+* TypeScript
+* Tailwind CSS
+* ShadCN UI
+* Lucide Icons
+* jsPDF
 
-🔐 Auth + Roles
+### Backend
 
-✅ Supabase Auth
+* Node.js
+* Express.js
+* Nodemailer
+* PDFKit
 
-✅ User Roles Table (Super Admin controls)
+### Database & Auth
 
-✅ Secure Admin Routes
+* Supabase
+* PostgreSQL
+* Role-based authentication
 
-🧰 Tech Stack
+---
 
-Frontend: React + TypeScript
+## 📁 Monorepo Structure
 
-Styling: TailwindCSS + shadcn/ui
+```
+NGO Website and Admin Panel/
+│
+├── src/
+│   ├── app/
+│   │   ├── App.tsx
+│   │   ├── pages/
+│   │   │   ├── index.tsx
+│   │   │   ├── donate.tsx
+│   │   │   ├── volunteer.tsx
+│   │   │   ├── internship.tsx
+│   │   │   └── admin/
+│   │   │       ├── dashboard.tsx
+│   │   │       ├── users.tsx
+│   │   │       ├── donations.tsx
+│   │   │       ├── volunteers.tsx
+│   │   │       ├── messages.tsx
+│   │   │       └── blogs.tsx
+│   └── utils/
+│
+├── server/
+│   ├── index.js
+│   └── .env
+│
+├── vercel.json
+├── package.json
+└── README.md
+```
 
-Icons: Lucide-react
+---
 
-Backend: Supabase (Database + Auth)
+## 🔐 User Roles
 
-Server (Optional): Node.js Express (Admin APIs, Certificate Email)
+| Role        | Access Level                      |
+| ----------- | --------------------------------- |
+| Super Admin | Full control                      |
+| Manager     | Volunteers + Donations + Programs |
+| Editor      | Blogs & announcements             |
+| None        | No admin access                   |
 
+---
 
+## 🧾 Donation Certificate Flow
 
+1. User donates
+2. Donation saved to Supabase
+3. Certificate generated
+4. PDF downloadable instantly
+5. Email sent automatically
+6. Unique certificate ID assigned
 
+---
 
+## 📧 SMTP Setup
 
+Supports Gmail, Outlook, Zoho, or custom SMTP.
 
+### `.env` (server)
 
+```
+SUPABASE_URL=
+SUPABASE_SERVICE_ROLE_KEY=
 
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=
+SMTP_PASS=
+FROM_EMAIL=
+```
 
+---
 
+## 🔗 API Routes
 
+### Certificate
 
+```
+POST /api/donation/send-certificate
+```
 
+### Admin
 
+```
+POST   /api/admin/create-user
+GET    /api/admin/users
+POST   /api/admin/update-role
+DELETE /api/admin/delete-user/:id
+POST   /api/admin/log
+```
 
+---
 
+## ▲ Deployment (Vercel Monorepo)
 
+Uses Vercel serverless backend + static frontend build.
 
+---
 
+## 🔒 Security
 
+* Supabase RLS
+* Backend service role isolation
+* Role guards
+* SMTP protection
+* Admin audit logs
 
+---
 
+## 📈 Future Enhancements
 
+* QR certificate verification
+* Donation analytics dashboard
+* WhatsApp notifications
+* Multi-language support
+* CSR donor dashboards
+* Annual reports (PDF)
 
+---
 
+## 👨‍💻 Developer
 
+**Ayush Shukla**
+B.Tech IT | Full-Stack Developer
+🔗 [https://www.linkedin.com/in/ayush-shukla-957671305](https://www.linkedin.com/in/ayush-shukla-957671305)
 
+---
 
-  # NGO Website and Admin Panel
+## ⭐ Why This Project Stands Out
 
-  This is a code bundle for NGO Website and Admin Panel. The original project is available at https://www.AYUSHGCET112.com/design/GOKnDqIguJLAjzPLChmIIt/NGO-Website-and-Admin-Panel.
+✔ Real NGO use case
+✔ Enterprise architecture
+✔ Recruiter-ready
+✔ Client deployable
+✔ Production quality
 
-  ## Running the code
+---
 
-  Run `npm i` to install the dependencies.
-
-  Run `npm run dev` to start the development server.
-  
+💙 Built to empower NGOs and showcase modern full-stack engineering.

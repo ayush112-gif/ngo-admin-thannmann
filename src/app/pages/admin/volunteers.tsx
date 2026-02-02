@@ -6,20 +6,28 @@ import { Button } from "@/app/components/ui/button";
 import { Input } from "@/app/components/ui/input";
 import { Badge } from "@/app/components/ui/badge";
 
-import { supaVolunteers } from "@/utils/supabaseApi";
+import { useRouter } from "@/app/components/router";
 
 import {
+  LayoutDashboard,
+  Megaphone,
+  FileText,
+  Heart,
+  Briefcase,
   Users,
+  DollarSign,
+  MessageSquare,
   RefreshCcw,
   Search,
   CheckCircle2,
   XCircle,
-  Clock3,
   Trash2,
   Mail,
   Phone,
   MapPin,
 } from "lucide-react";
+
+import { supaVolunteers } from "@/utils/supabaseApi";
 
 type VolunteerRow = {
   id: string;
@@ -32,10 +40,22 @@ type VolunteerRow = {
   created_at: string;
 };
 
+const menuItems = [
+  { id: "dashboard", icon: LayoutDashboard, label: "Dashboard", route: "/admin/dashboard" },
+  { id: "announcements", icon: Megaphone, label: "Announcements", route: "/admin/announcements" },
+  { id: "blogs", icon: FileText, label: "Blogs", route: "/admin/blogs" },
+  { id: "programs", icon: Heart, label: "Programs", route: "/admin/programs" },
+  { id: "internships", icon: Briefcase, label: "Internships", route: "/admin/internships" },
+  { id: "volunteers", icon: Users, label: "Volunteers", route: "/admin/volunteers" },
+  { id: "donations", icon: DollarSign, label: "Donations", route: "/admin/donations" },
+  { id: "messages", icon: MessageSquare, label: "Messages", route: "/admin/messages" },
+];
+
 export default function AdminVolunteers() {
+  const { navigate } = useRouter();
+
   const [items, setItems] = useState<VolunteerRow[]>([]);
   const [loading, setLoading] = useState(true);
-
   const [q, setQ] = useState("");
 
   async function load() {
@@ -44,7 +64,6 @@ export default function AdminVolunteers() {
       const data = await supaVolunteers.getAll();
       setItems((data || []) as VolunteerRow[]);
     } catch (e: any) {
-      console.error(e);
       toast.error(e?.message || "Failed to load volunteers");
     } finally {
       setLoading(false);
@@ -59,22 +78,31 @@ export default function AdminVolunteers() {
     const query = q.trim().toLowerCase();
     if (!query) return items;
 
-    return items.filter((v) => {
-      const text =
-        `${v.name} ${v.email} ${v.phone || ""} ${v.city || ""} ${v.interest || ""} ${v.status || ""}`.toLowerCase();
-
-      // ✅ replaceAll avoid
-      return text.split(" ").join("").includes(query.split(" ").join(""));
-    });
+    return items.filter((v) =>
+      `${v.name} ${v.email} ${v.city || ""} ${v.status}`.toLowerCase().includes(query)
+    );
   }, [items, q]);
 
-  async function setStatus(id: string, status: "Pending" | "Approved" | "Rejected") {
+  async function setStatus(id: string, status: VolunteerRow["status"]) {
     try {
+      const volunteer = items.find((v) => v.id === id);
+      if (!volunteer) return;
+
       await supaVolunteers.updateStatus(id, status);
-      toast.success(`✅ Status updated: ${status}`);
-      await load();
+
+      await fetch("http://localhost:5050/admin/volunteer-status", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: volunteer.email,
+          name: volunteer.name,
+          status,
+        }),
+      });
+
+      toast.success("Status updated + email sent");
+      load();
     } catch (e: any) {
-      console.error(e);
       toast.error(e?.message || "Failed to update status");
     }
   }
@@ -83,11 +111,10 @@ export default function AdminVolunteers() {
     if (!confirm("Delete this volunteer application?")) return;
     try {
       await supaVolunteers.remove(id);
-      toast.success("✅ Application deleted");
-      await load();
+      toast.success("Application deleted");
+      load();
     } catch (e: any) {
-      console.error(e);
-      toast.error(e?.message || "Failed to delete application");
+      toast.error(e?.message || "Failed to delete");
     }
   }
 
@@ -98,175 +125,93 @@ export default function AdminVolunteers() {
   }
 
   return (
-    <div className="p-6 md:p-8 bg-[#F8FAFC] min-h-screen">
-      {/* Header */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div>
-          <div className="text-sm text-gray-500 flex items-center gap-2">
-            <Users size={16} />
-            Admin / Volunteers
-          </div>
+    <div className="flex h-screen">
 
-          <h1
-            className="text-3xl font-extrabold text-[#0F172A]"
-            style={{ fontFamily: "Poppins, sans-serif" }}
-          >
-            Volunteers Manager
-          </h1>
-
-          <p className="text-gray-600 mt-1">
-            Approve or reject volunteer applications and manage responses.
-          </p>
+      {/* NAVBAR */}
+      <aside className="w-64 bg-slate-900 text-white flex flex-col">
+        <div className="p-6 text-xl font-bold border-b border-slate-700">
+          NGO Admin
         </div>
 
-        <Button onClick={load} variant="outline" className="rounded-full">
-          <RefreshCcw size={16} className="mr-2" />
-          Refresh
-        </Button>
-      </div>
+        <nav className="flex-1 p-2 space-y-1">
+          {menuItems.map((item) => {
+            const Icon = item.icon;
+            const active = item.id === "volunteers";
 
-      {/* Search */}
-      <div className="mt-6">
-        <div className="relative max-w-xl">
+            return (
+              <button
+                key={item.id}
+                onClick={() => navigate(item.route)}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition ${
+                  active ? "bg-blue-600" : "hover:bg-slate-800 text-slate-300"
+                }`}
+              >
+                <Icon size={18} />
+                {item.label}
+              </button>
+            );
+          })}
+        </nav>
+      </aside>
+
+      {/* MAIN */}
+      <main className="flex-1 p-8 bg-[#F8FAFC] overflow-auto">
+
+        <div className="flex items-center justify-between">
+          <h1 className="text-3xl font-extrabold">Volunteers Manager</h1>
+          <Button onClick={load} variant="outline" className="rounded-full">
+            <RefreshCcw size={16} className="mr-2" />
+            Refresh
+          </Button>
+        </div>
+
+        <div className="mt-6 max-w-xl relative">
           <Search size={16} className="absolute left-3 top-3 text-gray-400" />
           <Input
-            className="rounded-xl pl-9"
-            placeholder="Search volunteer (name/email/city/status)..."
+            className="pl-9 rounded-xl"
+            placeholder="Search volunteers..."
             value={q}
             onChange={(e) => setQ(e.target.value)}
           />
         </div>
-      </div>
 
-      {/* Summary */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
-        <Card className="border-2 rounded-2xl">
-          <CardContent className="p-5">
-            <div className="text-sm text-gray-600">Total Applications</div>
-            <div className="text-3xl font-extrabold text-[#0F172A] mt-1">{items.length}</div>
-          </CardContent>
-        </Card>
+        <Card className="mt-6 rounded-2xl border-2">
+          <CardContent className="p-6">
+            {loading ? (
+              <p>Loading...</p>
+            ) : (
+              <div className="grid md:grid-cols-2 gap-4">
+                {filtered.map((v) => (
+                  <div key={v.id} className="p-5 border rounded-2xl bg-white">
 
-        <Card className="border-2 rounded-2xl">
-          <CardContent className="p-5">
-            <div className="text-sm text-gray-600">Approved</div>
-            <div className="text-3xl font-extrabold text-[#0F172A] mt-1">
-              {items.filter((x) => x.status === "Approved").length}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-2 rounded-2xl">
-          <CardContent className="p-5">
-            <div className="text-sm text-gray-600">Pending</div>
-            <div className="text-3xl font-extrabold text-[#0F172A] mt-1">
-              {items.filter((x) => x.status === "Pending").length}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* List */}
-      <Card className="border-2 rounded-2xl bg-white mt-6">
-        <CardContent className="p-6">
-          <h2 className="text-lg font-bold text-[#0F172A]">
-            Applications ({filtered.length})
-          </h2>
-
-          {loading ? (
-            <p className="text-gray-600 mt-4">Loading applications...</p>
-          ) : filtered.length === 0 ? (
-            <p className="text-gray-600 mt-4">No volunteer applications found.</p>
-          ) : (
-            <div className="grid md:grid-cols-2 gap-4 mt-4">
-              {filtered.map((v) => (
-                <div
-                  key={v.id}
-                  className="p-5 border rounded-2xl bg-[#F8FAFC] hover:shadow-md transition-all"
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <h3 className="font-extrabold text-[#0F172A] truncate">
-                          {v.name}
-                        </h3>
+                    <div className="flex justify-between">
+                      <div>
+                        <h3 className="font-bold">{v.name}</h3>
                         {statusBadge(v.status)}
-                      </div>
 
-                      <div className="mt-3 grid gap-1 text-sm text-gray-700">
-                        <div className="flex items-center gap-2">
-                          <Mail size={14} className="text-gray-500" />
-                          <span className="break-all">{v.email}</span>
-                        </div>
-
-                        {v.phone && (
-                          <div className="flex items-center gap-2">
-                            <Phone size={14} className="text-gray-500" />
-                            <span>{v.phone}</span>
-                          </div>
-                        )}
-
-                        <div className="flex items-center gap-2">
-                          <MapPin size={14} className="text-gray-500" />
-                          <span>
-                            {v.city || "-"} {v.interest ? `• ${v.interest}` : ""}
-                          </span>
-                        </div>
-
-                        <div className="flex items-center gap-2 text-xs text-gray-500 mt-1">
-                          <Clock3 size={14} />
-                          {new Date(v.created_at).toLocaleString()}
+                        <div className="text-sm mt-2 space-y-1">
+                          <div className="flex gap-2"><Mail size={14} /> {v.email}</div>
+                          {v.phone && <div className="flex gap-2"><Phone size={14} /> {v.phone}</div>}
+                          <div className="flex gap-2"><MapPin size={14} /> {v.city}</div>
                         </div>
                       </div>
 
-                      <div className="text-[11px] text-gray-400 mt-2 break-all">
-                        ID: {v.id}
+                      <div className="flex flex-col gap-2">
+                        <Button onClick={() => setStatus(v.id, "Approved")} className="bg-green-600">Approve</Button>
+                        <Button onClick={() => setStatus(v.id, "Rejected")} className="bg-red-600">Reject</Button>
+                        <Button onClick={() => remove(v.id)} variant="outline">Delete</Button>
                       </div>
+
                     </div>
 
-                    {/* Actions */}
-                    <div className="flex flex-col gap-2">
-                      <Button
-                        onClick={() => setStatus(v.id, "Approved")}
-                        className="rounded-full bg-green-600 hover:bg-green-700"
-                      >
-                        <CheckCircle2 size={16} className="mr-2" />
-                        Approve
-                      </Button>
-
-                      <Button
-                        onClick={() => setStatus(v.id, "Rejected")}
-                        className="rounded-full bg-red-600 hover:bg-red-700"
-                      >
-                        <XCircle size={16} className="mr-2" />
-                        Reject
-                      </Button>
-
-                      <Button
-                        onClick={() => setStatus(v.id, "Pending")}
-                        variant="outline"
-                        className="rounded-full"
-                      >
-                        <Clock3 size={16} className="mr-2" />
-                        Pending
-                      </Button>
-
-                      <Button
-                        onClick={() => remove(v.id)}
-                        variant="outline"
-                        className="rounded-full border-red-500 text-red-600 hover:bg-red-50"
-                      >
-                        <Trash2 size={16} className="mr-2" />
-                        Delete
-                      </Button>
-                    </div>
                   </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+      </main>
     </div>
   );
 }

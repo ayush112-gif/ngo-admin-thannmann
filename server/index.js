@@ -6,56 +6,56 @@ import nodemailer from "nodemailer";
 import PDFDocument from "pdfkit";
 import QRCode from "qrcode";
 
-// ✅ load env from server/.env
+/* ----------------------------------------
+   ENV
+---------------------------------------- */
 dotenv.config({ path: "server/.env" });
 
 const url = (process.env.SUPABASE_URL || "").trim();
 const key = (process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
 
-if (!url) {
-  console.error("❌ SUPABASE_URL missing in server/.env");
-  process.exit(1);
-}
-if (!key) {
-  console.error("❌ SUPABASE_SERVICE_ROLE_KEY missing in server/.env");
+if (!url || !key) {
+  console.error("❌ Supabase ENV missing");
   process.exit(1);
 }
 
 const supabaseAdmin = createClient(url, key);
 
+/* ----------------------------------------
+   EXPRESS
+---------------------------------------- */
 const app = express();
 app.use(cors());
 app.use(express.json());
 
 /* ----------------------------------------
-   ✅ SMTP Transport
+   SMTP
 ---------------------------------------- */
-const SMTP_HOST = process.env.SMTP_HOST;
-const SMTP_PORT = Number(process.env.SMTP_PORT || 587);
-const SMTP_SECURE = (process.env.SMTP_SECURE || "false") === "true";
-const SMTP_USER = process.env.SMTP_USER;
-const SMTP_PASS = process.env.SMTP_PASS;
-const FROM_EMAIL = process.env.FROM_EMAIL || SMTP_USER;
-
-if (!SMTP_HOST || !SMTP_USER || !SMTP_PASS) {
-  console.error("❌ SMTP ENV missing. Check server/.env");
-  process.exit(1);
-}
-
 const transporter = nodemailer.createTransport({
-  host: SMTP_HOST,
-  port: SMTP_PORT,
-  secure: SMTP_SECURE,
+  host: process.env.SMTP_HOST,
+  port: Number(process.env.SMTP_PORT || 587),
+  secure: false,
   auth: {
-    user: SMTP_USER,
-    pass: SMTP_PASS,
+    user: process.env.SMTP_USER,
+    pass: process.env.SMTP_PASS,
   },
 });
 
+transporter.verify((err) => {
+  if (err) console.error("❌ SMTP ERROR:", err.message);
+  else console.log("✅ SMTP READY");
+});
+
 /* ----------------------------------------
-   ✅ Certificate PDF Generator (Premium + QR + Signed)
+   PREMIUM PDF CERTIFICATE (V2)
 ---------------------------------------- */
-async function generateCertificatePDF({ name, amount, date, certificateId, verifyUrl }) {
+async function generateCertificatePDF({
+  name,
+  amount,
+  date,
+  certificateId,
+  verifyUrl,
+}) {
   return new Promise(async (resolve, reject) => {
     try {
       const doc = new PDFDocument({ size: "A4", margin: 50 });
@@ -63,196 +63,218 @@ async function generateCertificatePDF({ name, amount, date, certificateId, verif
 
       doc.on("data", (c) => chunks.push(c));
       doc.on("end", () => resolve(Buffer.concat(chunks)));
-      doc.on("error", reject);
 
-      const pageW = doc.page.width;
-      const pageH = doc.page.height;
+      const w = doc.page.width;
+      const h = doc.page.height;
 
-      // ✅ Background
-      doc.rect(0, 0, pageW, pageH).fill("#F8FAFC");
+      // Background
+      doc.rect(0, 0, w, h).fill("#F8FAFC");
 
-      // ✅ Premium border
-      doc.lineWidth(4).rect(25, 25, pageW - 50, pageH - 50).stroke("#1D4ED8");
-      doc.lineWidth(1).rect(35, 35, pageW - 70, pageH - 70).stroke("#94A3B8");
+      // Double Border (luxury)
+      doc.lineWidth(4).rect(28, 28, w - 56, h - 56).stroke("#1D4ED8");
+      doc.lineWidth(1).rect(38, 38, w - 76, h - 76).stroke("#CBD5E1");
 
-      // ✅ Header Title
+      // Title
       doc
         .font("Helvetica-Bold")
+        .fontSize(28)
         .fillColor("#0F172A")
-        .fontSize(26)
-        .text("CERTIFICATE OF APPRECIATION", 0, 90, { align: "center" });
+        .text("CERTIFICATE OF APPRECIATION", 0, 95, { align: "center" });
 
       doc
+        .moveDown(0.3)
         .font("Helvetica")
-        .fillColor("#334155")
-        .fontSize(13)
-        .text("This certificate is proudly presented to", 0, 140, { align: "center" });
-
-      // ✅ Name
-      doc
-        .font("Helvetica-Bold")
-        .fillColor("#1D4ED8")
-        .fontSize(24)
-        .text(String(name).toUpperCase(), 0, 175, { align: "center" });
-
-      // ✅ Body Text
-      doc
-        .font("Helvetica")
-        .fillColor("#334155")
-        .fontSize(13)
-        .text(`For generously contributing ₹${amount} to support our mission.`, 0, 230, {
-          align: "center",
-        });
-
-      doc
+        .fontSize(14)
         .fillColor("#475569")
-        .fontSize(12)
+        .text("This certificate is proudly awarded to", { align: "center" });
+
+      // Name
+      doc
+        .moveDown(1)
+        .font("Helvetica-Bold")
+        .fontSize(26)
+        .fillColor("#1D4ED8")
+        .text(name.toUpperCase(), { align: "center" });
+
+      // Body
+      doc
+        .moveDown(1)
+        .font("Helvetica")
+        .fontSize(14)
+        .fillColor("#334155")
         .text(
-          "Your support helps us deliver education, healthcare and community welfare programs.",
+          `In sincere recognition of your generous contribution of ₹${amount}.
+Your support strengthens our commitment to advancing education,
+healthcare, and community welfare initiatives.`,
           90,
-          260,
-          { align: "center", width: pageW - 180 }
+          250,
+          { width: w - 180, align: "center" }
         );
 
-      // ✅ Donation Info Box
-      doc.roundedRect(90, 310, pageW - 180, 90, 12).fill("#EFF6FF");
+      // Info Panel
+      doc.roundedRect(100, 345, w - 200, 90, 14).fill("#EFF6FF");
 
       doc.fillColor("#0F172A").font("Helvetica-Bold").fontSize(11);
-      doc.text(`Certificate ID: ${certificateId}`, 110, 330);
-      doc.text(`Issued On: ${date}`, 110, 350);
+      doc.text(`Certificate ID: ${certificateId}`, 120, 365);
+      doc.text(`Date of Issue: ${date}`, 120, 385);
+      doc.text(`Issued By: Thannmanngaadi Foundation`, 120, 405);
 
-      doc.font("Helvetica").fillColor("#334155").fontSize(11);
-      doc.text(`Donation Amount: ₹${amount}`, 360, 330);
-      doc.text(`NGO: Thannmanngaadi Foundation`, 360, 350);
-
-      // ✅ QR Code generation (verify URL)
-      const qrDataUrl = await QRCode.toDataURL(verifyUrl);
-      const qrBase64 = qrDataUrl.replace(/^data:image\/png;base64,/, "");
-      const qrBuffer = Buffer.from(qrBase64, "base64");
-
-      doc.image(qrBuffer, pageW - 160, 430, { width: 90 });
+      // QR
+      const qr = await QRCode.toDataURL(verifyUrl);
+      const qrBuf = Buffer.from(qr.split(",")[1], "base64");
+      doc.image(qrBuf, w - 175, 460, { width: 90 });
 
       doc
         .font("Helvetica")
+        .fontSize(9)
         .fillColor("#64748B")
-        .fontSize(9)
-        .text("Scan to verify", pageW - 168, 525);
+        .text("Scan to verify authenticity", w - 190, 555);
 
-      // ✅ Signature Line
-      doc.moveTo(90, 500).lineTo(260, 500).stroke("#94A3B8");
+      // Signature
+      doc.moveTo(100, 515).lineTo(260, 515).stroke("#94A3B8");
 
-      doc.font("Helvetica-Bold").fillColor("#0F172A").fontSize(11);
-      doc.text("Authorized Signatory", 90, 510);
+      doc
+        .font("Helvetica-Bold")
+        .fontSize(11)
+        .fillColor("#0F172A")
+        .text("Authorized Signatory", 100, 525);
 
-      doc.font("Helvetica").fillColor("#64748B").fontSize(10);
-      doc.text("Thannmanngaadi Foundation", 90, 528);
-
-      // ✅ Digital Signed Badge (Visual)
-      doc.roundedRect(pageW - 260, 500, 130, 36, 8).stroke("#16A34A");
-      doc.font("Helvetica-Bold").fillColor("#16A34A").fontSize(10);
-      doc.text("DIGITALLY SIGNED", pageW - 250, 512);
-
-      // ✅ Footer
       doc
         .font("Helvetica")
-        .fillColor("#94A3B8")
+        .fontSize(10)
+        .fillColor("#64748B")
+        .text("Thannmanngaadi Foundation", 100, 542);
+
+      // Footer
+      doc
+        .font("Helvetica-Oblique")
         .fontSize(9)
-        .text("© Thannmanngaadi Foundation | This certificate is system generated.", 0, 570, {
-          align: "center",
-        });
+        .fillColor("#64748B")
+        .text(
+          "This is a digitally generated certificate and is valid without a physical signature.",
+          0,
+          575,
+          { align: "center" }
+        );
 
       doc.end();
-    } catch (err) {
-      reject(err);
+    } catch (e) {
+      reject(e);
     }
   });
 }
 
 /* ----------------------------------------
-   ✅ Verify Certificate Page (QR opens this)
----------------------------------------- */
-app.get("/verify/:certId", async (req, res) => {
-  const certId = req.params.certId;
-
-  return res.send(`
-    <html>
-      <head>
-        <title>Certificate Verification</title>
-      </head>
-      <body style="font-family: Arial; padding: 30px; background:#f8fafc;">
-        <div style="max-width: 700px; margin:auto; background:white; padding:24px; border-radius:14px; box-shadow:0 10px 30px rgba(0,0,0,0.08);">
-          <h2 style="margin:0;">✅ Certificate Verified</h2>
-          <p style="color:#334155;">This certificate was generated by <b>Thannmanngaadi Foundation</b>.</p>
-          <hr style="border:none; border-top:1px solid #e2e8f0; margin:18px 0;" />
-          <p><b>Certificate ID:</b> ${certId}</p>
-          <p style="color:gray; font-size:13px;">(Demo verification page. Next: connect with Supabase to show donor details)</p>
-        </div>
-      </body>
-    </html>
-  `);
-});
-
-/* ----------------------------------------
-   ✅ Donation -> Send certificate email (SMTP)
+   SEND CERTIFICATE EMAIL (ENTERPRISE STYLE)
 ---------------------------------------- */
 app.post("/donation/send-certificate", async (req, res) => {
   try {
     const { name, email, amount } = req.body;
-
-    if (!name || !email || !amount) {
-      return res.status(400).json({
-        ok: false,
-        error: "name, email, amount required",
-      });
-    }
+    if (!name || !email || !amount)
+      return res.status(400).json({ ok: false });
 
     const certificateId = "CERT-" + Date.now();
     const date = new Date().toLocaleDateString();
+    const verifyUrl = `https://ngo-admin-thannmann.onrender.com/verify/${certificateId}`;
 
-    // ✅ IMPORTANT: verify link in QR
-    const verifyUrl = `http://localhost:5050/verify/${certificateId}`;
-
-    // ✅ Create PDF
-    const pdfBuffer = await generateCertificatePDF({
+    const pdf = await generateCertificatePDF({
       name,
       amount,
       date,
       certificateId,
       verifyUrl,
     });
+// 🔔 ADMIN NOTIFICATION INSERT
+await supabaseAdmin.from("admin_notifications").insert([
+  {
+    type: "donation",
+    title: "New Donation",
+    message: `₹${amount} donated by ${name}`,
+  },
+]);
 
-    // ✅ Send mail
     await transporter.sendMail({
-      from: FROM_EMAIL,
+      from: `"Thannmanngaadi Foundation" <${process.env.SMTP_USER}>`,
       to: email,
-      subject: "Thank you for your donation ❤️ (Certificate Attached)",
+      subject: "Official Donation Acknowledgement & Certificate",
       html: `
-        <div style="font-family: Arial, sans-serif; line-height: 1.6;">
-          <h2>Thank you, ${name}! 🙏</h2>
-          <p>We received your donation of <b>₹${amount}</b>.</p>
-          <p>Your donation helps us create real impact in communities.</p>
-          <p><b>Certificate ID:</b> ${certificateId}</p>
-          <p>✅ Your donation certificate is attached with this email.</p>
-          <p>🔎 Verify: <a href="${verifyUrl}">${verifyUrl}</a></p>
-          <br/>
-          <p>Regards,<br/><b>Thannmanngaadi Foundation</b></p>
-        </div>
+<div style="background:#f8fafc;padding:36px;font-family:Segoe UI,Arial">
+  <div style="max-width:640px;margin:auto;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 15px 40px rgba(0,0,0,.12)">
+
+    <div style="background:#1d4ed8;padding:20px 28px">
+      <h2 style="margin:0;color:#ffffff;font-weight:600">
+        Thannmanngaadi Foundation
+      </h2>
+      <p style="margin:4px 0 0;color:#dbeafe;font-size:13px">
+        Official Donation Communication
+      </p>
+    </div>
+
+    <div style="padding:32px">
+      <p style="font-size:15px;color:#334155">
+        Dear <b>${name}</b>,
+      </p>
+
+      <p style="font-size:15px;color:#334155;line-height:1.8">
+        We gratefully acknowledge receipt of your donation of 
+        <b style="color:#1d4ed8">₹${amount}</b>.
+        Your generosity enables us to continue delivering meaningful impact
+        across our community-driven programs.
+      </p>
+
+      <div style="background:#f1f5f9;padding:18px;border-radius:12px;margin:24px 0">
+        <p style="margin:0;font-size:14px">
+          <b>Donation Certificate ID:</b> ${certificateId}
+        </p>
+      </div>
+
+      <p style="font-size:14px;color:#334155">
+        📎 Your official donation certificate is attached to this email.
+      </p>
+
+      <p style="font-size:14px;color:#334155">
+        🔍 Certificate Verification:
+        <a href="${verifyUrl}" style="color:#2563eb">${verifyUrl}</a>
+      </p>
+
+      <hr style="border:none;border-top:1px solid #e5e7eb;margin:28px 0"/>
+
+      <p style="font-size:14px;color:#334155">
+        With sincere appreciation,<br/>
+        <b>Thannmanngaadi Foundation</b><br/>
+        <span style="color:#64748b">
+          Empowering communities through compassion
+        </span>
+      </p>
+    </div>
+  </div>
+
+  <p style="text-align:center;color:#94a3b8;font-size:12px;margin-top:18px">
+    © Thannmanngaadi Foundation • Automated system-generated email
+  </p>
+</div>
       `,
       attachments: [
         {
           filename: `Donation-Certificate-${certificateId}.pdf`,
-          content: pdfBuffer,
+          content: pdf,
         },
       ],
     });
 
-    return res.json({ ok: true, certificateId, emailSent: true });
+    res.json({ ok: true, certificateId });
   } catch (e) {
-    console.error("❌ SMTP send error:", e);
-    return res.status(500).json({ ok: false, error: e?.message || "Server error" });
+    console.error(e);
+    res.status(500).json({ ok: false });
   }
 });
 
+/* ----------------------------------------
+   VERIFY PAGE
+---------------------------------------- */
+app.get("/verify/:id", (req, res) => {
+  res.send(`<h2>✅ Certificate ${req.params.id} Verified</h2>`);
+});
 /* ----------------------------------------
    ✅ Existing Admin APIs (Role & Users)
 ---------------------------------------- */
@@ -378,5 +400,120 @@ app.post("/admin/log", async (req, res) => {
     return res.status(500).json({ ok: false, error: "Server error" });
   }
 });
+/* ----------------------------------------
+   ADMIN REPLY EMAIL
+---------------------------------------- */
+app.post("/admin/reply-message", async (req, res) => {
+  try {
+    const { to, name, message } = req.body;
 
-app.listen(5050, () => console.log("✅ Server Running: http://localhost:5050"));
+    if (!to || !message) {
+      return res.status(400).json({ ok: false, error: "Missing fields" });
+    }
+
+    const html = `
+<div style="background:#f8fafc;padding:36px;font-family:Segoe UI,Arial">
+  <div style="max-width:640px;margin:auto;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 15px 40px rgba(0,0,0,.12)">
+
+    <div style="background:#1d4ed8;padding:20px 28px">
+      <h2 style="margin:0;color:#ffffff;font-weight:600">
+        Thannmanngaadi Foundation
+      </h2>
+      <p style="margin:4px 0 0;color:#dbeafe;font-size:13px">
+        Official Support Reply
+      </p>
+    </div>
+
+    <div style="padding:32px">
+      <p style="font-size:15px;color:#334155">
+        Dear <b>${name || "Support User"}</b>,
+      </p>
+
+      <p style="font-size:15px;color:#334155;line-height:1.8">
+        ${message.replace(/\n/g, "<br/>")}
+      </p>
+
+      <hr style="border:none;border-top:1px solid #e5e7eb;margin:28px 0"/>
+
+      <p style="font-size:14px;color:#334155">
+        Warm regards,<br/>
+        <b>Support Team</b><br/>
+        Thannmanngaadi Foundation
+      </p>
+    </div>
+  </div>
+
+  <p style="text-align:center;color:#94a3b8;font-size:12px;margin-top:18px">
+    © Thannmanngaadi Foundation • Automated support response
+  </p>
+</div>
+    `;
+
+    await transporter.sendMail({
+      from: `"Thannmanngaadi Support" <${process.env.SMTP_USER}>`,
+      to,
+      subject: "Official Support Response",
+      html,
+    });
+
+    res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ ok: false, error: "Email failed" });
+  }
+});
+
+
+
+
+app.post("/admin/volunteer-status", async (req, res) => {
+  try {
+    const { email, name, status } = req.body;
+
+    const subject =
+      status === "Approved"
+        ? "🎉 Volunteer Application Approved"
+        : status === "Rejected"
+        ? "Volunteer Application Update"
+        : "Volunteer Application Pending";
+
+    const html = `
+      <h2>Hello ${name},</h2>
+      <p>Your volunteer application status is:</p>
+      <h1 style="color:${
+        status === "Approved" ? "green" : status === "Rejected" ? "red" : "orange"
+      }">${status}</h1>
+
+      ${
+        status === "Approved"
+          ? "<p>Welcome to our NGO team! We will contact you soon.</p>"
+          : status === "Rejected"
+          ? "<p>Thank you for applying. We appreciate your interest.</p>"
+          : "<p>Your application is under review.</p>"
+      }
+
+      <br/>
+      <p>Regards,<br/>NGO Team</p>
+    `;
+
+    await transporter.sendMail({
+      from: `"NGO Admin" <${process.env.SMTP_EMAIL}>`,
+      to: email,
+      subject,
+      html,
+    });
+
+    res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ ok: false, error: "Email failed" });
+  }
+});
+
+
+/* ----------------------------------------
+   SERVER
+---------------------------------------- */
+app.listen(5050, () =>
+  console.log("🚀 Server running on http://localhost:5050")
+);  

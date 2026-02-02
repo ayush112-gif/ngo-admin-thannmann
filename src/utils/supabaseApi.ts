@@ -77,6 +77,10 @@ export const supaDonations = {
     amount: number;
     type: string;
     paymentMethod: string;
+    anonymous?: boolean;
+    taxBenefit?: boolean;
+    pan?: string | null;
+    address?: string | null;
   }) {
     const { data, error } = await supabase
       .from("donations")
@@ -88,6 +92,10 @@ export const supaDonations = {
           amount: payload.amount,
           type: payload.type,
           payment_method: payload.paymentMethod,
+          anonymous: payload.anonymous || false,
+          tax_benefit: payload.taxBenefit || false,
+          pan: payload.pan || null,
+          address: payload.address || null,
         },
       ])
       .select()
@@ -525,3 +533,106 @@ export const supabaseContact = {
     if (error) throw error;
   },
 };
+
+
+/* ---------------------------------------------
+   ✅ IMPACT RULES API
+   Table: impact_rules
+---------------------------------------------- */
+export const supaImpactRules = {
+  async getAll() {
+    const { data, error } = await supabase
+      .from("impact_rules")
+      .select("*")
+      .order("amount", { ascending: true });
+
+    if (error) throw error;
+    return data || [];
+  },
+
+  async upsertRule(payload: {
+    amount: number;
+    label: string;
+    impact_text: string;
+  }) {
+    const { error } = await supabase
+      .from("impact_rules")
+      .upsert([payload], { onConflict: "amount" });
+
+    if (error) throw error;
+  },
+
+  async removeByAmount(amount: number) {
+    const { error } = await supabase
+      .from("impact_rules")
+      .delete()
+      .eq("amount", amount);
+
+    if (error) throw error;
+  },
+};
+
+/* ---------------------------------------------
+   ✅ IMPACT STATS API
+---------------------------------------------- */
+export const supaImpactStats = {
+  async getLiveStats() {
+    // total raised
+    const { data: donations } = await supabase
+      .from("donations")
+      .select("amount");
+
+    const totalRaised =
+      donations?.reduce((sum, d) => sum + (d.amount || 0), 0) || 0;
+
+    // total donors
+    const totalDonors = donations?.length || 0;
+
+    // today donors
+    const today = new Date().toISOString().slice(0, 10);
+
+    const { count: todayDonors } = await supabase
+      .from("donations")
+      .select("*", { count: "exact", head: true })
+      .gte("created_at", today);
+
+    return {
+      totalRaised,
+      totalDonors,
+      todayDonors: todayDonors || 0,
+    };
+  },
+};
+
+export const supaDonationGoal = {
+  async getGoal() {
+    const { data, error } = await supabase
+      .from("donation_goals")
+      .select("*")
+      .limit(1)
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+};
+
+
+export const supaLeaderboard = {
+  async getTopDonors() {
+    const { data, error } = await supabase
+      .from("donations")
+      .select("*")
+      .order("amount", { ascending: false })
+      .limit(10);
+
+    if (error) throw error;
+
+    return (data || []).map((d: any) => ({
+      name: d.name,
+      amount: d.amount,
+      anonymous: d.anonymous,
+    }));
+  },
+};
+
