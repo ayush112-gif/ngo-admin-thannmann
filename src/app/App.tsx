@@ -32,7 +32,7 @@ import AdminDonations from "@/app/pages/admin/donations";
 import AdminVolunteers from "@/app/pages/admin/volunteers";
 import AdminPrograms from "@/app/pages/admin/programs";
 import AdminInternships from "@/app/pages/admin/internships";
-import AdminImpactRules from "@/app/pages/admin/impactRules";
+
 
 import { LiveImpactWidget } from "@/app/components/LiveImpactWidget";
 
@@ -70,8 +70,7 @@ function AppContent() {
 
       case "/admin/programs":
         return <AdminPrograms />;
-        case "/admin/impactrules":
-  return <AdminImpactRules />;
+        
 
 
       case "/admin/internships":
