@@ -517,3 +517,8 @@ app.post("/admin/volunteer-status", async (req, res) => {
 app.listen(5050, () =>
   console.log("🚀 Server running on http://localhost:5050")
 );  
+const PORT = process.env.PORT || 5050;
+
+app.listen(PORT, "0.0.0.0", () => {
+  console.log(`🚀 Server running on port ${PORT}`);
+});
