@@ -3,91 +3,61 @@ import { Navbar } from "@/app/components/navbar";
 import { Footer } from "@/app/components/footer";
 import { Toaster } from "@/app/components/ui/sonner";
 
-import AdminMessages from "@/app/pages/admin/messages";
-import AdminUsers from "@/app/pages/admin/users";
-
 import { HomePage } from "@/app/pages/home";
 import { AboutPage } from "@/app/pages/about";
-import { DonatePage } from "@/app/pages/donate";
+import  DonatePage  from "@/app/pages/donate";
 import { HallOfFamePage } from "@/app/pages/halloffame";
 
-
-
-import {
-  ProgramsPage,
-  VolunteerPage,
-  InternshipsPage,
-  ImpactPage,
-  BlogPage,
-  ContactPage,
-} from "@/app/pages/index";
-
+import VolunteerPage from "@/app/pages/volunteer";
+import { ProgramsPage } from "@/app/pages/programs";
+import { InternshipsPage } from "@/app/pages/internships";
+import { BlogPage } from "@/app/pages/blog";
 import { BlogDetailsPage } from "@/app/pages/blogDetails";
 
-import { AdminLoginPage}  from "@/app/pages/admin/login";
-import  {AdminDashboard}  from "@/app/pages/admin/dashboard";
+import { AdminLoginPage } from "@/app/pages/admin/login";
+import { AdminDashboard } from "@/app/pages/admin/dashboard";
 import AdminAnnouncements from "@/app/pages/admin/announcements";
 import AdminBlogs from "@/app/pages/admin/blogs";
 import AdminDonations from "@/app/pages/admin/donations";
 import AdminVolunteers from "@/app/pages/admin/volunteers";
 import AdminPrograms from "@/app/pages/admin/programs";
 import AdminInternships from "@/app/pages/admin/internships";
-
-
-import { LiveImpactWidget } from "@/app/components/LiveImpactWidget";
+import AdminMessages from "@/app/pages/admin/messages";
+import AdminUsers from "@/app/pages/admin/users";
 
 function AppContent() {
   const { currentPath } = useRouter();
 
-  // ✅ ADMIN ROUTES (NO NAVBAR/FOOTER)
+  // ADMIN ROUTES
   if (currentPath.startsWith("/admin")) {
     switch (currentPath) {
       case "/admin":
       case "/admin/login":
         return <AdminLoginPage />;
-
       case "/admin/dashboard":
         return <AdminDashboard />;
-
       case "/admin/announcements":
         return <AdminAnnouncements />;
-
       case "/admin/blogs":
         return <AdminBlogs />;
-
-        case "/hall-of-fame":
-  return <HallOfFamePage />;
-  // ✅ Hall of Fame route
-
-
-
-
       case "/admin/donations":
         return <AdminDonations />;
-
       case "/admin/volunteers":
         return <AdminVolunteers />;
-
       case "/admin/programs":
         return <AdminPrograms />;
-        
-
-
       case "/admin/internships":
         return <AdminInternships />;
-
       case "/admin/messages":
         return <AdminMessages />;
-
-      case "/admin/users": // ✅ USERS ROUTE ADDED
+      case "/admin/users":
         return <AdminUsers />;
-
       default:
         return <AdminDashboard />;
     }
   }
 
-  // ✅ BLOG DETAILS ROUTE
+  // BLOG DETAILS
   if (currentPath.startsWith("/blog/")) {
     return (
       <div className="min-h-screen flex flex-col">
@@ -100,7 +70,7 @@ function AppContent() {
     );
   }
 
-  // ✅ MAIN WEBSITE ROUTES
+  // PUBLIC ROUTES
   let PageComponent = HomePage;
 
   switch (currentPath) {
@@ -122,14 +92,11 @@ function AppContent() {
     case "/donate":
       PageComponent = DonatePage;
       break;
-    case "/impact":
-      PageComponent = ImpactPage;
-      break;
     case "/blog":
       PageComponent = BlogPage;
       break;
-    case "/contact":
-      PageComponent = ContactPage;
+    case "/hall-of-fame":
+      PageComponent = HallOfFamePage;
       break;
     default:
       PageComponent = HomePage;

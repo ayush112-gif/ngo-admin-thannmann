@@ -38,10 +38,14 @@ export function Navbar() {
       className={`sticky top-0 z-50 transition-all ${
         scrolled ? "backdrop-blur-xl bg-white/70 shadow-md" : "bg-transparent"
       }`}
-      style={{ borderBottom: scrolled ? "1px solid rgba(15,23,42,0.08)" : "none" }}
+      style={{ pointerEvents: "none" }} // 🔥 click isolation
     >
-      <div className="container mx-auto px-4 sm:px-6">
+      <div
+        className="container mx-auto px-4 sm:px-6"
+        style={{ pointerEvents: "auto" }} // real navbar clickable
+      >
         <div className="h-16 flex items-center justify-between">
+
           {/* Logo */}
           <button
             className="flex items-center gap-2 select-none"

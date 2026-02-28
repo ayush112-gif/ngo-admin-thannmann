@@ -1,153 +1,229 @@
-import { useState } from "react";
-import { Button } from "@/app/components/ui/button";
-import { Card, CardContent } from "@/app/components/ui/card";
-import { Input } from "@/app/components/ui/input";
-import { Label } from "@/app/components/ui/label";
-import { toast } from "sonner";
-import { supaVolunteers } from "@/utils/supabaseApi";
-import { Sparkles, Users, Heart, BadgeCheck } from "lucide-react";
+import { useState, useEffect } from "react";
+import { supabase } from "@/utils/supabaseClient";
+import { motion } from "framer-motion";
+import CountUp from "react-countup";
+import Confetti from "react-confetti";
+import GlobeDonations from "@/app/components/GlobeDonations";
 
-export function VolunteerPage() {
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [phone, setPhone] = useState("");
-  const [city, setCity] = useState("");
-  const [interest, setInterest] = useState("");
+export default function VolunteerPage() {
+  const [step, setStep] = useState(1);
+  const [success, setSuccess] = useState(false);
+  const [impact, setImpact] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  const [activity, setActivity] = useState("Volunteer joined from Delhi");
+
+  const [form, setForm] = useState({
+    name: "",
+    email: "",
+    phone: "",
+    city: "",
+    interest: "",
+  });
+
+  useEffect(() => {
+    const feed = [
+      "New volunteer joined",
+      "Education camp live",
+      "Food drive active",
+      "Healthcare outreach running",
+      "Community event happening",
+    ];
+
+    const i = setInterval(() => {
+      setActivity(feed[Math.floor(Math.random() * feed.length)]);
+    }, 2500);
+
+    return () => clearInterval(i);
+  }, []);
+
+  const update = (k: string, v: string) =>
+    setForm((f) => ({ ...f, [k]: v }));
 
   async function submit() {
-    alert("submit clicked");
+    setError("");
 
-    if (!name.trim() || !email.trim()) {
-      toast.error("Name and Email required");
+    if (!form.name || !form.email || !form.city || !form.interest) {
+      setError("Please complete all required fields.");
       return;
     }
 
     setLoading(true);
 
-    try {
-      const res = await supaVolunteers.create({
-        name,
-        email,
-        phone,
-        city,
-        interest,
-      });
+    // insert DB
+    const { error } = await supabase
+      .from("volunteer_applications")
+      .insert([form]);
 
-      console.log("Volunteer inserted:", res);
-      toast.success("✅ Application submitted!");
-
-      setName("");
-      setEmail("");
-      setPhone("");
-      setCity("");
-      setInterest("");
-    } catch (err: any) {
-      console.error(err);
-      toast.error(err?.message || "Submission failed");
-    } finally {
+    if (error) {
+      setError(error.message);
       setLoading(false);
+      return;
     }
+
+    // backend email trigger
+    await fetch("http://localhost:5050/api/volunteer/apply", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: form.name,
+        email: form.email,
+      }),
+    });
+
+    setSuccess(true);
+    setStep(5);
+    setLoading(false);
+
+    setImpact(true);
+    setTimeout(() => setImpact(false), 400);
   }
 
   return (
-    <div className="bg-[#F8FAFC]">
+    <div className="bg-[#070b14] text-white overflow-hidden relative">
 
-      {/* Hero */}
-      <section className="relative overflow-hidden bg-[#050B1F] text-white py-16">
-        {/* 👇 overlay should not block clicks */}
-        <div className="absolute inset-0 soft-glow opacity-85 pointer-events-none" />
+      {success && <Confetti recycle={false} numberOfPieces={500} />}
+      <GlobeDonations trigger={impact} />
 
-        <div className="relative container mx-auto px-4 sm:px-6">
-          <div className="max-w-3xl">
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full glass mb-5">
-              <Sparkles size={16} />
-              <span className="text-sm text-blue-100">
-                Become a Volunteer • Help on ground & online
-              </span>
-            </div>
+      <motion.div
+        animate={{ x: ["100%", "-100%"] }}
+        transition={{ repeat: Infinity, duration: 12, ease: "linear" }}
+        className="bg-blue-600 py-2 text-center font-semibold whitespace-nowrap z-10 relative"
+      >
+        🔥 Live Activity: {activity}
+      </motion.div>
 
-            <h1 className="text-4xl md:text-6xl font-extrabold">
-              Join Our <span className="text-[#38BDF8]">Volunteer</span> Team
-            </h1>
+      <section className="min-h-screen flex flex-col justify-center items-center text-center px-6 relative z-10">
 
-            <p className="text-blue-100 mt-4 text-lg">
-              Your time and skills can change lives.
-            </p>
-          </div>
+        <motion.h1
+          initial={{ opacity: 0, y: 80 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="text-6xl font-extrabold mb-6"
+        >
+          Global Volunteer Network
+        </motion.h1>
+
+        <p className="text-gray-400 max-w-2xl mb-12">
+          Join a cinematic future of volunteering.
+        </p>
+
+        <div className="grid grid-cols-3 gap-12 mb-16">
+          <Stat num={1200} label="Volunteers" />
+          <Stat num={45} label="Programs" />
+          <Stat num={80000} label="Lives Impacted" />
         </div>
+
+        <Wizard
+          step={step}
+          setStep={setStep}
+          form={form}
+          update={update}
+          submit={submit}
+          loading={loading}
+          error={error}
+        />
       </section>
+    </div>
+  );
+}
 
-      {/* Form */}
-      <section className="py-16 relative z-10">
-        <div className="container mx-auto px-4 sm:px-6 max-w-5xl">
-          <div className="grid md:grid-cols-2 gap-8">
+/* ---------------- Wizard ---------------- */
 
-            {/* Left Content */}
-            <Card className="neo-card hover-3d p-6">
-              <CardContent className="p-0">
-                <h2 className="text-2xl font-extrabold text-[#0F172A] flex items-center gap-2">
-                  <Users className="text-[#1D4ED8]" />
-                  Why Volunteer With Us?
-                </h2>
+function Wizard({ step, setStep, form, update, submit, loading, error }: any) {
 
-                <div className="mt-6 space-y-4">
-                  {[
-                    { icon: BadgeCheck, title: "Certificate", desc: "Get verified volunteer certificate." },
-                    { icon: Heart, title: "Real Impact", desc: "Work on real campaigns and ground events." },
-                    { icon: Sparkles, title: "Skill Growth", desc: "Develop leadership & teamwork experience." },
-                  ].map((x) => {
-                    const Icon = x.icon;
-                    return (
-                      <div key={x.title} className="neo-card p-5 hover-3d">
-                        <div className="flex items-start gap-3">
-                          <div className="w-10 h-10 rounded-2xl bg-[#1D4ED8]/10 flex items-center justify-center">
-                            <Icon className="text-[#1D4ED8]" size={20} />
-                          </div>
-                          <div>
-                            <h3 className="font-extrabold text-[#0F172A]">{x.title}</h3>
-                            <p className="text-gray-600 mt-1 text-sm">{x.desc}</p>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </CardContent>
-            </Card>
+  if (step === 5)
+    return (
+      <div className="bg-green-500/10 border border-green-500 p-8 rounded-xl text-green-400 font-bold">
+        🎉 Welcome to the volunteer network!  
+        <br />
+        Check your email for onboarding instructions.
+      </div>
+    );
 
-            {/* Right Form */}
-            <Card className="neo-card hover-3d p-6">
-              <CardContent className="p-0">
-                <h2 className="text-2xl font-extrabold text-[#0F172A]">
-                  Volunteer Application Form
-                </h2>
-
-                <div className="mt-6 space-y-4">
-                  <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Full Name" />
-                  <Input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email" />
-                  <Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Phone" />
-                  <Input value={city} onChange={(e) => setCity(e.target.value)} placeholder="City" />
-                  <Input value={interest} onChange={(e) => setInterest(e.target.value)} placeholder="Interest Area" />
-
-                  <Button
-                    type="button"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      submit();
-                    }}
-                    disabled={loading}
-                    className="w-full rounded-full bg-[#1D4ED8] h-12 font-bold"
-                  >
-                    {loading ? "Submitting..." : "Submit Application"}
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-
-          </div>
+  return (
+    <motion.div
+      initial={{ scale: 0.9 }}
+      animate={{ scale: 1 }}
+      className="w-full max-w-md bg-white/5 border border-white/10 rounded-2xl p-8 space-y-4"
+    >
+      {error && (
+        <div className="bg-red-500/10 border border-red-500 p-3 rounded text-red-400 text-sm">
+          {error}
         </div>
-      </section>
+      )}
+
+      {step === 1 && (
+        <>
+          <input placeholder="Full Name" value={form.name}
+            onChange={(e) => update("name", e.target.value)}
+            className="input" />
+          <button onClick={() => setStep(2)} className="btn">Next</button>
+        </>
+      )}
+
+      {step === 2 && (
+        <>
+          <input placeholder="Email" value={form.email}
+            onChange={(e) => update("email", e.target.value)}
+            className="input" />
+          <input placeholder="Phone" value={form.phone}
+            onChange={(e) => update("phone", e.target.value)}
+            className="input" />
+          <button onClick={() => setStep(3)} className="btn">Next</button>
+        </>
+      )}
+
+      {step === 3 && (
+        <>
+          <input placeholder="City" value={form.city}
+            onChange={(e) => update("city", e.target.value)}
+            className="input" />
+          <button onClick={() => setStep(4)} className="btn">Next</button>
+        </>
+      )}
+
+      {step === 4 && (
+        <>
+          <input placeholder="Interest Area" value={form.interest}
+            onChange={(e) => update("interest", e.target.value)}
+            className="input" />
+          <button onClick={submit} disabled={loading} className="btn">
+            {loading ? "Submitting..." : "Submit"}
+          </button>
+        </>
+      )}
+
+      <style>{`
+        .input {
+          width:100%; padding:12px; border-radius:12px;
+          background:rgba(255,255,255,.05);
+          border:1px solid rgba(255,255,255,.1);
+          color:white; outline:none;
+        }
+        .input:focus { border-color:#2563eb; }
+
+        .btn {
+          width:100%;
+          background:#2563eb;
+          padding:12px;
+          border-radius:12px;
+          font-weight:bold;
+        }
+      `}</style>
+    </motion.div>
+  );
+}
+
+/* ---------------- Stats ---------------- */
+
+function Stat({ num, label }: any) {
+  return (
+    <div>
+      <div className="text-4xl font-bold text-blue-400">
+        <CountUp end={num} duration={3} separator="," />
+      </div>
+      <div className="text-gray-400">{label}</div>
     </div>
   );
 }

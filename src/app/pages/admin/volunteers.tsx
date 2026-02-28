@@ -19,9 +19,6 @@ import {
   MessageSquare,
   RefreshCcw,
   Search,
-  CheckCircle2,
-  XCircle,
-  Trash2,
   Mail,
   Phone,
   MapPin,
@@ -39,6 +36,8 @@ type VolunteerRow = {
   status: "Pending" | "Approved" | "Rejected";
   created_at: string;
 };
+
+const API = import.meta.env.VITE_API_URL;
 
 const menuItems = [
   { id: "dashboard", icon: LayoutDashboard, label: "Dashboard", route: "/admin/dashboard" },
@@ -79,7 +78,9 @@ export default function AdminVolunteers() {
     if (!query) return items;
 
     return items.filter((v) =>
-      `${v.name} ${v.email} ${v.city || ""} ${v.status}`.toLowerCase().includes(query)
+      `${v.name} ${v.email} ${v.city || ""} ${v.status}`
+        .toLowerCase()
+        .includes(query)
     );
   }, [items, q]);
 
@@ -90,7 +91,8 @@ export default function AdminVolunteers() {
 
       await supaVolunteers.updateStatus(id, status);
 
-      await fetch("http://localhost:5050/admin/volunteer-status", {
+      // send status email via backend
+      await fetch(`${API}/admin/volunteer-status`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -127,7 +129,7 @@ export default function AdminVolunteers() {
   return (
     <div className="flex h-screen">
 
-      {/* NAVBAR */}
+      {/* SIDEBAR */}
       <aside className="w-64 bg-slate-900 text-white flex flex-col">
         <div className="p-6 text-xl font-bold border-b border-slate-700">
           NGO Admin
@@ -197,9 +199,15 @@ export default function AdminVolunteers() {
                       </div>
 
                       <div className="flex flex-col gap-2">
-                        <Button onClick={() => setStatus(v.id, "Approved")} className="bg-green-600">Approve</Button>
-                        <Button onClick={() => setStatus(v.id, "Rejected")} className="bg-red-600">Reject</Button>
-                        <Button onClick={() => remove(v.id)} variant="outline">Delete</Button>
+                        <Button onClick={() => setStatus(v.id, "Approved")} className="bg-green-600">
+                          Approve
+                        </Button>
+                        <Button onClick={() => setStatus(v.id, "Rejected")} className="bg-red-600">
+                          Reject
+                        </Button>
+                        <Button onClick={() => remove(v.id)} variant="outline">
+                          Delete
+                        </Button>
                       </div>
 
                     </div>

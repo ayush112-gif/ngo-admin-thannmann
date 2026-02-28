@@ -1,360 +1,323 @@
-import { useMemo, useState } from "react";
-import { Button } from "@/app/components/ui/button";
-import { Card, CardContent } from "@/app/components/ui/card";
-import { Input } from "@/app/components/ui/input";
-import { Label } from "@/app/components/ui/label";
-import { RadioGroup, RadioGroupItem } from "@/app/components/ui/radio-group";
-import { Tabs, TabsList, TabsTrigger } from "@/app/components/ui/tabs";
-import { Progress } from "@/app/components/ui/progress";
-import { toast } from "sonner";
-import { CreditCard, Smartphone, Building, Heart, Download, MailCheck } from "lucide-react";
-
+import { useState, useEffect } from "react";
+import confetti from "canvas-confetti";
+import { motion, AnimatePresence } from "framer-motion";
+import { QRCodeCanvas } from "qrcode.react";
 import { supaDonations } from "@/utils/supabaseApi";
-import jsPDF from "jspdf";
+import GlobeDonations from "@/app/components/GlobeDonations";
 
-export function DonatePage() {
-  const [amount, setAmount] = useState<number>(499);
-  const [type, setType] = useState<string>("one-time");
+type Donation = {
+  name: string;
+  amount: number;
+  created_at?: string;
+};
 
-  const [name, setName] = useState<string>("");
-  const [email, setEmail] = useState<string>("");
-  const [phone, setPhone] = useState<string>("");
+export default function DonatePage() {
+  const [step, setStep] = useState(1);
 
-  const [paymentMethod, setPaymentMethod] = useState<string>("upi");
+  const [paymentStage, setPaymentStage] = useState<
+    "select" | "loading" | "qr" | "verifying"
+  >("select");
 
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [lastDonationId, setLastDonationId] = useState<string | null>(null);
-  const [lastDonationDate, setLastDonationDate] = useState<string | null>(null);
+  const [paymentMethod, setPaymentMethod] = useState<
+    "none" | "upi" | "card" | "netbanking" | "wallet"
+  >("none");
 
-  const presetAmounts = [199, 499, 999, 1999];
+  const [amount, setAmount] = useState("");
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
 
-  // ✅ Fake campaign progress (later dynamic)
-  const goal = 100000;
-  const raised = 45000;
-  const progress = (raised / goal) * 100;
+  const [donors, setDonors] = useState<Donation[]>([]);
+  const [recent, setRecent] = useState<Donation[]>([]);
+  const [popup, setPopup] = useState<Donation | null>(null);
+  const [totalRaised, setTotalRaised] = useState(0);
 
-  const impactMessages: Record<number, string> = useMemo(
-    () => ({
-      199: "Your ₹199 provides basic stationery for a student",
-      499: "Your ₹499 helps provide study material for 1 student",
-      999: "Your ₹999 supports a child's education for a month",
-      1999: "Your ₹1999 sponsors a family healthcare checkup",
-    }),
-    []
-  );
+  const campaignGoal = 200000;
+  const progress = Math.min((totalRaised / campaignGoal) * 100, 100);
 
-  function validateEmail(value: string) {
-    return /^\S+@\S+\.\S+$/.test(value);
-  }
+  // 🔹 Load leaderboard + stats
+  const loadData = async () => {
+    const data = await supaDonations.getAll();
+    if (!data) return;
 
-  // ✅ Certificate PDF (front-end download)
-  function downloadCertificatePDF() {
-    if (!name || !email || !lastDonationDate) {
-      toast.error("Donation info missing for certificate");
-      return;
-    }
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
-    const doc = new jsPDF("landscape", "pt", "a4");
-    const pageW = doc.internal.pageSize.getWidth();
-    const pageH = doc.internal.pageSize.getHeight();
-
-    doc.setFillColor(248, 250, 252);
-    doc.rect(0, 0, pageW, pageH, "F");
-
-    doc.setDrawColor(29, 78, 216);
-    doc.setLineWidth(4);
-    doc.rect(30, 30, pageW - 60, pageH - 60);
-
-    doc.setDrawColor(148, 163, 184);
-    doc.setLineWidth(1);
-    doc.rect(45, 45, pageW - 90, pageH - 90);
-
-    doc.setFont("helvetica", "bold");
-    doc.setTextColor(15, 23, 42);
-    doc.setFontSize(30);
-    doc.text("CERTIFICATE OF APPRECIATION", pageW / 2, 120, { align: "center" });
-
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(14);
-    doc.setTextColor(60, 60, 60);
-    doc.text("This certificate is proudly presented to", pageW / 2, 170, { align: "center" });
-
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(28);
-    doc.setTextColor(29, 78, 216);
-    doc.text(name.toUpperCase(), pageW / 2, 215, { align: "center" });
-
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(14);
-    doc.setTextColor(55, 65, 81);
-    doc.text(
-      `For generously supporting our mission with a donation of ₹${amount}.`,
-      pageW / 2,
-      255,
-      { align: "center" }
+    const weekly = data.filter(
+      (d: any) => new Date(d.created_at) >= sevenDaysAgo
     );
 
-    doc.setFontSize(12);
-    doc.setTextColor(15, 23, 42);
-    doc.text(`Donation Type: ${type}`, 90, 350);
-    doc.text(`Payment Method: ${paymentMethod}`, 90, 372);
-    doc.text(`Date: ${new Date(lastDonationDate).toLocaleString()}`, 90, 394);
+    const sorted = weekly.sort(
+      (a: any, b: any) => Number(b.amount) - Number(a.amount)
+    );
 
-    if (lastDonationId) {
-      doc.setTextColor(100, 116, 139);
-      doc.text(`Certificate Ref: ${lastDonationId}`, 90, 418);
+    setDonors(sorted.slice(0, 3));
+    setRecent(sorted.slice(0, 6));
+
+    const total = data.reduce(
+      (sum: number, d: any) => sum + Number(d.amount),
+      0
+    );
+
+    setTotalRaised(total);
+  };
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  // 🔹 Popup ticker
+  useEffect(() => {
+    if (!recent.length) return;
+
+    const interval = setInterval(() => {
+      const r = recent[Math.floor(Math.random() * recent.length)];
+      setPopup(r);
+      setTimeout(() => setPopup(null), 3000);
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, [recent]);
+
+  // 🔹 Payment simulation engine
+  useEffect(() => {
+    if (paymentStage === "loading") {
+      const t = setTimeout(() => setPaymentStage("qr"), 2000);
+      return () => clearTimeout(t);
     }
 
-    doc.setDrawColor(200, 210, 255);
-    doc.setLineWidth(1);
-    doc.line(70, pageH - 150, pageW - 70, pageH - 150);
-
-    doc.setFont("helvetica", "bold");
-    doc.setTextColor(15, 23, 42);
-    doc.text("Authorized Signatory", pageW - 250, pageH - 110);
-
-    doc.setFont("helvetica", "normal");
-    doc.setTextColor(100, 116, 139);
-    doc.text("Thannmanngaadi Foundation", pageW - 280, pageH - 90);
-
-    doc.save(`Donation-Certificate-${name.replace(/\s+/g, "_")}.pdf`);
-  }
-
-  async function sendCertificateEmail(donorName: string, donorEmail: string, donorAmount: number) {
-    const res = await fetch("http://localhost:5050/donation/send-certificate", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        name: donorName,
-        email: donorEmail,
-        amount: donorAmount,
-      }),
-    });
-
-    const data = await res.json();
-    if (!data.ok) {
-      throw new Error(data.error || "Failed to send certificate email");
+    if (paymentStage === "qr") {
+      const t = setTimeout(() => setPaymentStage("verifying"), 8000);
+      return () => clearTimeout(t);
     }
-    return data;
-  }
 
-  async function handleDonate() {
-    if (!name.trim()) return toast.error("Please enter your full name");
-    if (!email.trim()) return toast.error("Please enter your email");
-    if (!validateEmail(email)) return toast.error("Please enter a valid email address");
-    if (!amount || amount < 1) return toast.error("Please enter a valid amount");
+    if (paymentStage === "verifying") {
+      const t = setTimeout(async () => {
+        await completeDonation();
+        setStep(3);
+      }, 3000);
+      return () => clearTimeout(t);
+    }
+  }, [paymentStage]);
 
-    setIsSubmitting(true);
+  // 🔹 FINAL DONATION FLOW
+  const completeDonation = async () => {
     try {
-      // ✅ Save donation in Supabase
-      const saved = await supaDonations.create({
+      const payload = {
         name,
         email,
-        phone: phone || undefined,
-        amount,
-        type,
+        amount: Number(amount),
+        type: "donation",
         paymentMethod,
+      };
+
+      const saved = await supaDonations.create(payload);
+      if (!saved) throw new Error("Supabase save failed");
+
+      const res = await fetch(
+        "http://localhost:5050/donation/send-certificate",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name,
+            email,
+            amount: Number(amount),
+          }),
+        }
+      );
+
+      if (!res.ok) {
+        const msg = await res.text();
+        throw new Error(msg || "Email API failed");
+      }
+
+      confetti({
+        particleCount: 350,
+        spread: 160,
+        origin: { y: 0.6 },
       });
 
-      setLastDonationId(saved?.id || null);
-      setLastDonationDate(saved?.created_at || new Date().toISOString());
+      await loadData();
 
-      toast.success("✅ Donation saved successfully!");
-      toast.success("🎉 Thank you for your donation 🙏");
-
-      // ✅ Send email certificate
-      await sendCertificateEmail(name, email, amount);
-      toast.success("📩 Certificate emailed successfully!");
-
-      // clear form
-      setName("");
-      setEmail("");
-      setPhone("");
-    } catch (error: any) {
-      console.error(error);
-      toast.error(error?.message || "Failed to process donation");
-    } finally {
-      setIsSubmitting(false);
+    } catch (err) {
+      console.error("Donation error:", err);
+      alert("Donation saved but email failed. Admin will resend manually.");
     }
-  }
+  };
+
+  const reset = () => {
+    setStep(1);
+    setPaymentStage("select");
+    setPaymentMethod("none");
+    setAmount("");
+    setName("");
+    setEmail("");
+  };
+
+  const podium =
+    donors.length === 3
+      ? donors
+      : [
+          { name: "Legend Donor", amount: 50000 },
+          { name: "Hero Donor", amount: 30000 },
+          { name: "Star Donor", amount: 20000 },
+        ];
+
+  const preset = [100, 500, 1000, 5000];
+
+  const container = {
+    hidden: {},
+    show: { transition: { staggerChildren: 0.08 } },
+  };
+
+  const fadeUp = {
+    hidden: { opacity: 0, y: 10 },
+    show: { opacity: 1, y: 0, transition: { duration: 0.5 } },
+  };
 
   return (
-    <div className="bg-[#F8FAFC] py-16">
-      <div className="container mx-auto px-4 sm:px-6 max-w-4xl">
-        <div className="text-center mb-12">
-          <h1 className="text-5xl font-bold text-[#0F172A] mb-4" style={{ fontFamily: "Poppins, sans-serif" }}>
-            Make a Donation
-          </h1>
-          <p className="text-xl text-gray-600" style={{ fontFamily: "Inter, sans-serif" }}>
-            Your contribution creates lasting impact in our communities
-          </p>
+    <div className="bg-[#070b14] text-white overflow-hidden relative min-h-screen flex items-center justify-center">
+
+      {/* Full-page globe background */}
+      <GlobeDonations />
+
+      <motion.div className="absolute w-96 h-96 bg-blue-600/20 blur-3xl rounded-full top-[-100px] left-[-100px]"
+        animate={{ y: [0, 50, 0] }} transition={{ repeat: Infinity, duration: 10 }} />
+      <motion.div className="absolute w-96 h-96 bg-purple-600/20 blur-3xl rounded-full bottom-[-100px] right-[-100px]"
+        animate={{ y: [0, -50, 0] }} transition={{ repeat: Infinity, duration: 12 }} />
+
+      <motion.div initial="hidden" animate="show" variants={container} className="relative z-10 w-full max-w-4xl p-8 space-y-8 rounded-2xl">
+
+        <motion.h1 variants={fadeUp} className="text-4xl font-bold text-center bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
+          Support The Mission
+        </motion.h1>
+
+        {/* Progress */}
+        <div className="space-y-2">
+          <div className="h-4 bg-white/10 rounded overflow-hidden">
+            <motion.div
+              className="h-4 bg-gradient-to-r from-green-400 to-emerald-500"
+              initial={{ width: 0 }}
+              animate={{ width: `${progress}%` }}
+            />
+          </div>
+          <div className="flex justify-between text-sm text-gray-400">
+            <span>₹{totalRaised.toLocaleString()}</span>
+            <span>Goal ₹{campaignGoal.toLocaleString()}</span>
+          </div>
         </div>
 
-        <Card className="mb-8 p-6">
-          <CardContent className="p-0">
-            <div className="flex justify-between mb-2">
-              <span className="font-semibold" style={{ fontFamily: "Poppins, sans-serif" }}>
-                Current Campaign
-              </span>
-              <span className="text-gray-600" style={{ fontFamily: "Inter, sans-serif" }}>
-                ₹{raised.toLocaleString()} / ₹{goal.toLocaleString()}
-              </span>
-            </div>
-            <Progress value={progress} className="h-3 mb-2" />
-            <p className="text-sm text-gray-600" style={{ fontFamily: "Inter, sans-serif" }}>
-              {progress.toFixed(0)}% of our goal reached
-            </p>
-          </CardContent>
-        </Card>
+        {/* Leaderboard only step 1 */}
+        {step === 1 && (
+          <div className="flex items-end justify-center gap-8">
+            {[1, 0, 2].map((i, idx) => {
+              const d = podium[i];
+              const heights = ["h-24", "h-32", "h-20"];
+              return (
+                <div key={idx} className="flex flex-col items-center">
+                  {i === 0 && <div className="text-3xl mb-1">🏆</div>}
+                  <div className={`w-20 ${heights[i]} bg-yellow-500/90 rounded-t-xl`} />
+                  <p className="mt-2 font-semibold">{d.name}</p>
+                  <p className="text-xs text-gray-400">₹{d.amount}</p>
+                </div>
+              );
+            })}
+          </div>
+        )}
 
-        <Card className="p-8">
-          <CardContent className="p-0">
-            <div className="mb-8">
-              <Label className="text-lg font-semibold mb-4 block">Donation Type</Label>
-              <Tabs value={type} onValueChange={setType}>
-                <TabsList className="grid w-full grid-cols-2">
-                  <TabsTrigger value="one-time">One-time</TabsTrigger>
-                  <TabsTrigger value="monthly">Monthly</TabsTrigger>
-                </TabsList>
-              </Tabs>
-            </div>
+        <AnimatePresence mode="wait">
 
-            <div className="mb-8">
-              <Label className="text-lg font-semibold mb-4 block">Select Amount</Label>
-
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-                {presetAmounts.map((preset) => (
-                  <Button
-                    key={preset}
-                    onClick={() => setAmount(preset)}
-                    variant={amount === preset ? "default" : "outline"}
-                    className={`h-16 text-lg ${
-                      amount === preset ? "bg-[#1D4ED8] hover:bg-[#1e40af]" : "hover:bg-[#F8FAFC]"
-                    }`}
-                  >
-                    ₹{preset}
-                  </Button>
-                ))}
+          {step === 1 && (
+            <motion.div key="s1" className="space-y-4">
+              <div className="flex gap-3 justify-center flex-wrap">
+                {preset.map(p => (
+                    <motion.button key={p} variants={fadeUp} whileHover={{ scale: 1.03 }} onClick={() => setAmount(String(p))}
+                      className="px-4 py-2 bg-white/10 rounded-lg text-sm">
+                      ₹{p}
+                    </motion.button>
+                  ))}
               </div>
 
-              <div>
-                <Label htmlFor="custom-amount" className="mb-2 block">
-                  Or Enter Custom Amount
-                </Label>
-                <Input
-                  id="custom-amount"
-                  type="number"
-                  value={amount}
-                  onChange={(e) => setAmount(Number(e.target.value))}
-                  className="text-xl p-6"
-                  placeholder="Enter amount"
-                />
-              </div>
+              <input placeholder="Amount" value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                className="w-full p-4 bg-black/40 border border-white/20 rounded" />
 
-              {impactMessages[amount] && (
-                <div className="mt-4 p-4 bg-[#38BDF8]/10 rounded-lg flex items-start gap-3">
-                  <Heart className="text-[#1D4ED8] flex-shrink-0 mt-0.5" size={20} />
-                  <p className="text-sm text-gray-700" style={{ fontFamily: "Inter, sans-serif" }}>
-                    {impactMessages[amount]}
-                  </p>
+              {amount && <input placeholder="Name" value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="w-full p-4 bg-black/40 border border-white/20 rounded" />}
+
+              {name && <input placeholder="Email" value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full p-4 bg-black/40 border border-white/20 rounded" />}
+
+              {email && (
+                <motion.button variants={fadeUp} whileHover={{ scale: 1.02 }} onClick={() => setStep(2)}
+                  className="w-full bg-gradient-to-r from-blue-600 to-purple-600 py-4 rounded">
+                  Continue
+                </motion.button>
+              )}
+            </motion.div>
+          )}
+
+          {step === 2 && (
+            <motion.div key="s2" className="text-center space-y-4">
+
+              {paymentMethod === "none" && (
+                <div className="grid grid-cols-2 gap-4">
+                  {["upi", "card", "netbanking", "wallet"].map((m) => (
+                    <button key={m}
+                      onClick={() => {
+                        setPaymentMethod(m as any);
+                        if (m === "upi") setPaymentStage("loading");
+                      }}
+                      className="bg-blue-500 py-4 rounded capitalize">
+                      {m}
+                    </button>
+                  ))}
                 </div>
               )}
-            </div>
 
-            <div className="mb-8">
-              <Label className="text-lg font-semibold mb-4 block">Payment Method</Label>
-              <RadioGroup value={paymentMethod} onValueChange={setPaymentMethod}>
-                <div className="grid gap-4">
-                  {[
-                    { value: "upi", label: "UPI", icon: Smartphone },
-                    { value: "card", label: "Credit/Debit Card", icon: CreditCard },
-                    { value: "netbanking", label: "Net Banking", icon: Building },
-                  ].map((method) => {
-                    const Icon = method.icon;
-                    return (
-                      <div
-                        key={method.value}
-                        className="flex items-center space-x-2 p-4 border-2 rounded-lg cursor-pointer hover:bg-[#F8FAFC]"
-                        onClick={() => setPaymentMethod(method.value)}
-                      >
-                        <RadioGroupItem value={method.value} id={method.value} />
-                        <Label htmlFor={method.value} className="flex items-center gap-2 cursor-pointer flex-1">
-                          <Icon size={20} />
-                          {method.label}
-                        </Label>
-                      </div>
-                    );
-                  })}
+              {paymentMethod === "upi" && paymentStage === "loading" &&
+                <p>Generating QR...</p>}
+
+              {paymentMethod === "upi" && paymentStage === "qr" && (
+                <div className="bg-white p-4 rounded-xl inline-block">
+                  <QRCodeCanvas value={`upi://pay?am=${amount}`} size={200} />
                 </div>
-              </RadioGroup>
-            </div>
+              )}
 
-            <div className="space-y-4 mb-8">
-              <h3 className="text-lg font-semibold">Your Information</h3>
+              {paymentMethod === "upi" && paymentStage === "verifying" &&
+                <p>Verifying payment...</p>}
 
-              <div>
-                <Label htmlFor="name">Full Name *</Label>
-                <Input id="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Enter your name" />
-              </div>
+            </motion.div>
+          )}
 
-              <div>
-                <Label htmlFor="email">Email *</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="Enter your email"
-                />
-              </div>
+          {step === 3 && (
+            <motion.div key="s3" className="text-center space-y-4">
+              <h2 className="text-3xl font-serif italic">
+                Thank you for your kindness ✨
+              </h2>
+              <p className="opacity-70">A certificate has been sent to your email</p>
+              <motion.button variants={fadeUp} whileHover={{ scale: 1.03 }} onClick={reset} className="bg-blue-500 px-6 py-3 rounded">
+                Done
+              </motion.button>
+            </motion.div>
+          )}
 
-              <div>
-                <Label htmlFor="phone">Phone Number</Label>
-                <Input
-                  id="phone"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  placeholder="Enter your phone"
-                />
-              </div>
-            </div>
+        </AnimatePresence>
+      </motion.div>
 
-            <Button
-              onClick={handleDonate}
-              disabled={isSubmitting}
-              className="w-full h-14 text-lg bg-[#1D4ED8] hover:bg-[#1e40af] rounded-full"
-              style={{ fontFamily: "Poppins, sans-serif" }}
-            >
-              {isSubmitting ? "Processing..." : `Donate ₹${amount}`}
-            </Button>
-
-            <p className="text-sm text-gray-600 text-center mt-4" style={{ fontFamily: "Inter, sans-serif" }}>
-              Your donation is secure and will be used for community development programs
-            </p>
-
-            {lastDonationDate && (
-              <div className="mt-6 p-4 border rounded-xl bg-white flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                <div>
-                  <p className="font-semibold text-[#0F172A] flex items-center gap-2">
-                    <MailCheck size={18} className="text-green-600" />
-                    Donation Successful
-                  </p>
-                  <p className="text-sm text-gray-600 mt-1">
-                    You can download your donation certificate.
-                  </p>
-                </div>
-
-                <Button onClick={downloadCertificatePDF} variant="outline" className="rounded-full">
-                  <Download size={18} className="mr-2" />
-                  Download Certificate
-                </Button>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+      <AnimatePresence>
+        {popup && (
+          <motion.div
+            initial={{ x: -300, opacity: 0 }}
+            animate={{ x: 40, opacity: 1 }}
+            exit={{ x: 300, opacity: 0 }}
+            className="fixed bottom-8 left-0 bg-white text-black px-6 py-4 rounded-xl">
+            💙 {popup.name} donated ₹{popup.amount}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

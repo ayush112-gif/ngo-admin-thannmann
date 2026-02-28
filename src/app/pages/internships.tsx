@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { motion } from "framer-motion";
 import { Card, CardContent } from "@/app/components/ui/card";
 import { Button } from "@/app/components/ui/button";
 import { Input } from "@/app/components/ui/input";
@@ -14,6 +15,16 @@ export function InternshipsPage() {
   const [role, setRole] = useState("UI/UX Intern");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
+
+  const container = {
+    hidden: {},
+    show: { transition: { staggerChildren: 0.12 } },
+  };
+
+  const fadeUp = {
+    hidden: { opacity: 0, y: 12 },
+    show: { opacity: 1, y: 0, transition: { duration: 0.6 } },
+  };
 
   async function apply() {
     if (!name.trim() || !email.trim()) {
@@ -53,63 +64,72 @@ export function InternshipsPage() {
   return (
     <div className="bg-[#F8FAFC]">
       {/* Hero */}
-      <section className="relative overflow-hidden bg-[#050B1F] text-white py-16">
+      <motion.section
+        initial="hidden"
+        whileInView="show"
+        viewport={{ once: true, amount: 0.2 }}
+        variants={container}
+        className="relative overflow-hidden bg-[#050B1F] text-white py-16"
+      >
         <div className="absolute inset-0 soft-glow opacity-85" />
         <div className="relative container mx-auto px-4 sm:px-6">
           <div className="max-w-3xl">
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full glass mb-5">
+            <motion.div variants={fadeUp} className="inline-flex items-center gap-2 px-4 py-2 rounded-full glass mb-5">
               <Sparkles size={16} />
               <span className="text-sm text-blue-100">Internships • Real Projects • NGO Impact</span>
-            </div>
+            </motion.div>
 
-            <h1 className="text-4xl md:text-6xl font-extrabold">
+            <motion.h1 variants={fadeUp} className="text-4xl md:text-6xl font-extrabold">
               Internship <span className="text-[#38BDF8]">Opportunities</span>
-            </h1>
+            </motion.h1>
 
-            <p className="text-blue-100 mt-4 text-lg">
+            <motion.p variants={fadeUp} className="text-blue-100 mt-4 text-lg">
               Work with us, build skills, and contribute to meaningful social impact.
-            </p>
+            </motion.p>
           </div>
         </div>
-      </section>
+      </motion.section>
 
       {/* Content */}
       <section className="py-16">
         <div className="container mx-auto px-4 sm:px-6 max-w-5xl">
           <div className="grid md:grid-cols-2 gap-8">
             {/* Details */}
-            <Card className="neo-card hover-3d p-6">
-              <CardContent className="p-0">
+            <motion.div variants={fadeUp} whileHover={{ y: -6 }} transition={{ type: 'spring', stiffness: 200 }}>
+              <Card className="neo-card hover-3d p-6">
+                <CardContent className="p-0">
                 <h2 className="text-2xl font-extrabold text-[#0F172A] flex items-center gap-2">
                   <Briefcase className="text-[#1D4ED8]" />
                   What You’ll Get
                 </h2>
 
                 <div className="mt-6 space-y-4">
-                  {[
-                    { title: "Certificate + Letter", desc: "Internship certificate & recommendation letter." },
-                    { title: "Real Work Experience", desc: "Work on real NGO website & systems." },
-                    { title: "Portfolio Projects", desc: "Build impactful work you can show in resume." },
-                  ].map((x) => (
-                    <div key={x.title} className="neo-card hover-3d p-5">
-                      <div className="flex gap-3 items-start">
-                        <div className="w-10 h-10 rounded-2xl bg-[#1D4ED8]/10 flex items-center justify-center">
-                          <BadgeCheck className="text-[#1D4ED8]" size={20} />
-                        </div>
-                        <div>
-                          <h3 className="font-extrabold text-[#0F172A]">{x.title}</h3>
-                          <p className="text-gray-600 mt-1 text-sm">{x.desc}</p>
-                        </div>
-                      </div>
+                      {[
+                        { title: "Certificate + Letter", desc: "Internship certificate & recommendation letter." },
+                        { title: "Real Work Experience", desc: "Work on real NGO website & systems." },
+                        { title: "Portfolio Projects", desc: "Build impactful work you can show in resume." },
+                      ].map((x) => (
+                        <motion.div key={x.title} variants={fadeUp} whileHover={{ y: -6, scale: 1.02 }} transition={{ type: 'spring', stiffness: 200 }} className="neo-card p-5">
+                          <div className="flex gap-3 items-start">
+                            <div className="w-10 h-10 rounded-2xl bg-[#1D4ED8]/10 flex items-center justify-center">
+                              <BadgeCheck className="text-[#1D4ED8]" size={20} />
+                            </div>
+                            <div>
+                              <h3 className="font-extrabold text-[#0F172A]">{x.title}</h3>
+                              <p className="text-gray-600 mt-1 text-sm">{x.desc}</p>
+                            </div>
+                          </div>
+                        </motion.div>
+                      ))}
                     </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            </motion.div>
 
             {/* Apply Form */}
-            <Card className="neo-card hover-3d p-6">
-              <CardContent className="p-0">
+            <motion.div variants={fadeUp} whileHover={{ y: -6 }} transition={{ type: 'spring', stiffness: 200 }}>
+              <Card className="neo-card hover-3d p-6">
+                <CardContent className="p-0">
                 <h2 className="text-2xl font-extrabold text-[#0F172A]">Apply Now</h2>
                 <p className="text-gray-600 mt-2">Fill details & apply for internship.</p>
 
@@ -151,8 +171,9 @@ export function InternshipsPage() {
                     )}
                   </Button>
                 </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            </motion.div>
           </div>
         </div>
       </section>

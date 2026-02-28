@@ -2,6 +2,7 @@
 @import './tailwind.css';
 @import './theme.css';
 
+
 /* ---------- 3D + Premium UI Helpers ---------- */
 
 .glass {
@@ -79,4 +80,21 @@
 
 .announcement-slide-out {
   animation: slideOutToLeft 0.9s ease-in;
+}
+
+.btn-glow:hover {
+  box-shadow: 0 0 25px rgba(59,130,246,0.5);
+  transform: translateY(-2px);
+  transition: all 0.3s ease;
+}
+
+.reveal-section {
+  opacity: 0;
+  transform: translateY(40px);
+  transition: all 0.8s ease;
+}
+
+.reveal-visible {
+  opacity: 1;
+  transform: translateY(0);
 }
