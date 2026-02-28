@@ -63,7 +63,7 @@ export default function VolunteerPage() {
     }
 
     // backend email trigger
-    await fetch("http://localhost:5050/api/volunteer/apply", {
+    await fetch("https://ngo-admin-thannmann-na5k.onrender.com/api/volunteer/apply", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
