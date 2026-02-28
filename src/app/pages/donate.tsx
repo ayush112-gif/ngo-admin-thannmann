@@ -114,7 +114,7 @@ export default function DonatePage() {
       if (!saved) throw new Error("Supabase save failed");
 
       const res = await fetch(
-        "http://localhost:5050/donation/send-certificate",
+        "https://ngo-admin-thannmann-na5k.onrender.com/donation/send-certificate",
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
